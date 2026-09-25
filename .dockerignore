@@ -5,3 +5,5 @@ data
 .env
 .git
 *.log
+# Personal, gitignored: must not ride along in the served /source.tar.gz either
+*.local.md
