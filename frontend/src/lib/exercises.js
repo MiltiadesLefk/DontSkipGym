@@ -200,7 +200,7 @@ export const gifSrc = (ex, figure) => GIF_BASE + clipFile(drawing(ex, figure) ? 
 // The catalogue's animations are short MP4 loops; a fork's or an older build's may still be GIFs.
 export const isVideoSrc = src => /\.(mp4|webm)(\?|$)/i.test(src || '')
 
-// Cardio exercises log time + speed instead of weight × reps.
+// Cardio exercises log time + distance instead of weight × reps.
 export const isCardio = idOrEx => (typeof idOrEx === 'string' ? EXIDX[idOrEx] : idOrEx)?.bp === 'cardio'
 
 // Exercises the dataset already knows carry no external load (issue #32) — a quarter of the

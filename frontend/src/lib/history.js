@@ -39,13 +39,14 @@ export const workoutAt = w => {
     ? new Date(day + 'T12:00:00').getTime()
     : NaN
 }
+import { kmOf, avgSpeed, cardioSet } from './cardio.js'
 
 // How an exercise is logged (issue #16). This used to be derived from the body part alone,
 // which meant a plank or a farmer's carry could only be timed by filing it under cardio.
 // A routine entry can now say so explicitly:
 //   reps   — weight × reps      sets look like { w, r }
 //   time   — a work duration    sets look like { sec, w }   (w = 0 for bodyweight)
-//   cardio — duration + speed   sets look like { min, speed }
+//   cardio — duration + distance  sets look like { min, km, speed } (speed derived, see cardio.js)
 // An entry without `mode` behaves exactly as before, so every existing plan, workout and
 // plan file is read unchanged and nothing needs migrating.
 export function modeOf(cfg) {
@@ -145,13 +146,16 @@ export function setLabel(id, s, cfg, speedUnit) {
   let mode = modeOf(c)
   // A set saved by an older build carries no target with it; the set's own fields still say what
   // it was — seconds for a timed set, minutes for cardio — so those are not read back as "0 reps".
-  if (!cfg && !(s.r > 0)) { if (s.min > 0 || s.speed > 0) mode = 'cardio'; else if (s.sec > 0) mode = 'time' }
+  if (!cfg && !(s.r > 0)) { if (s.min > 0 || s.speed > 0 || s.km > 0) mode = 'cardio'; else if (s.sec > 0) mode = 'time' }
   // A target with no mode of its own takes it from the exercise, and an exercise can change: a
   // custom one moved to Cardio after months of rep sets read them all as "0 min @ 0 km/h", next
   // to the volume those same sets still count. A set with reps and nothing cardio was a rep set.
   if (!EXPLICIT_MODES.has(cfg?.mode) && mode !== 'reps' && s.r > 0 && !(s.min > 0 || s.speed > 0 || s.sec > 0)) mode = 'reps'
   // A treadmill grade rides along when the set has one (lib/incline.js); a flat set reads as it did.
-  if (mode === 'cardio') return `${s.min || 0} min @ ${fmtSpeed(s.speed || 0, speedUnit)}` + (hasIncline(s) ? ' · ' + t('{0}% incline', fmtNum(Number(s.incline))) : '')
+  if (mode === 'cardio') {
+    const km = kmOf(s), v = avgSpeed(s.min, km)
+    return `${s.min || 0} min · ${fmtNum(km)} km` + (v > 0 ? ` (${fmtSpeed(v, speedUnit)})` : '') + (hasIncline(s) ? ' · ' + t('{0}% incline', fmtNum(Number(s.incline))) : '')
+  }
   // A set taken to failure carries its "F" behind the numbers, the mark lifting logs use for it;
   // the history, the text export and the set menu all read it from here.
   const fail = isFailureSet(s) ? ' ' + t('F') : ''
@@ -207,7 +211,7 @@ export function setLabel(id, s, cfg, speedUnit) {
 // Default config for a freshly added exercise.
 export function defaultConfig(id, mode) {
   const m = mode || modeOf({ id })
-  if (m === 'cardio') return { sets: 1, min: 20, speed: 8 }
+  if (m === 'cardio') return { sets: 1, min: 20, km: 3, speed: avgSpeed(20, 3) }
   // Written only when it is true, so a barbell config is byte-for-byte what it was before
   // the flag existed and a plan file gains nothing it does not need.
   const bw = isBodyweightEq(id) ? { bodyweight: true } : {}
@@ -243,7 +247,7 @@ export function exLine(cfg, unit, speedUnit) {
   const load = !cfg.weight ? ''
     : backoff ? ' · ' + (isBw(cfg) ? '+' : '') + backoffWeights(cfg.weight, n, backoff).map(fmtNum).join(' → ') + ' ' + unit
       : ' · ' + (isBw(cfg) ? '+' : '') + fmtNum(cfg.weight) + ' ' + unit
-  if (mode === 'cardio') return `${n} × ${cfg.min || 20} min @ ${fmtSpeed(cfg.speed || 8, speedUnit)}`
+  if (mode === 'cardio') return `${n} × ${cfg.min || 20} min · ${fmtNum(kmOf(cfg) || 3)} km`
   // A timed hold has no rep count to spell a split out of ("8/side" below) — "per side" says it
   // happens twice, once each side (buildWorkSets), rather than trying to divide a duration.
   if (mode === 'time') return `${setsRepsOf(cfg)}${load}${isPerSide(cfg) ? ' · ' + t('per side') : ''}`
@@ -574,7 +578,7 @@ function buildWorkSets(S, cfg, options = {}) {
   if (mode === 'cardio') {
     for (let i = 0; i < n; i++) {
       const prev = prevAt(i)
-      sets.push({ min: prev ? prev.min : (cfg.min || 20), speed: prev ? prev.speed : (cfg.speed || 8), ...inclineFrom(prev), done: false })
+      sets.push(cardioSet(prev, cfg, inclineFrom(prev)))
     }
     return sets
   }
@@ -1022,10 +1026,7 @@ export function insertWarmupRow(rows, mode, target, step = 2.5, floor = 0) {
   }
   const warm = mode === 'cardio'
     ? {
-      min: prev ? prev.min : (work ? work.min : (target.min || 20)),
-      speed: prev ? prev.speed : (work ? work.speed : (target.speed || 8)),
-      ...inclineFrom(prev || work),
-      done: false, phase: 'warmup', warmup: true,
+      ...cardioSet(prev || work, target, { ...inclineFrom(prev || work), phase: 'warmup', warmup: true }),
     }
     : mode === 'time'
       ? {

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-// Cardio speed in mph (Discord "miles per hour"): the set row shows, steps and takes typing in
-// the profile's speed unit, and what it stores is always km/h.
+// Cardio is time + distance (km) in the set row; the average speed is derived and stored in km/h.
+// The reference line under the exercise still reads that speed in the profile's unit (mph).
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
@@ -15,12 +15,12 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 const BIKE = '2138'   // stationary bike, cardio
 let root, container
 
-function mount(settings = {}) {
+function mount(settings = {}, sets = [{ min: 20, km: 3, speed: 9, done: false }]) {
   if (root) unmount()
   const S = { ...JSON.parse(JSON.stringify(DEF)), ...settings }
   S.active = {
     id: 'speed-test', d: '2026-09-23', start: Date.now(), routineId: null, name: 'Cardio', bw: null, cur: 0,
-    entries: [{ id: BIKE, target: { sets: 1, min: 20, speed: 8 }, sets: [{ min: 20, speed: 8, done: false }] }],
+    entries: [{ id: BIKE, target: { sets: 1, min: 20, km: 3, speed: 9 }, sets }],
   }
   useStore.setState({ S, user: null })
   container = document.createElement('div')
@@ -35,11 +35,12 @@ function unmount() {
 }
 afterEach(() => { if (root) unmount() })
 
-// The speed column is the second stepper of the set row, after the minutes.
+// The distance column is the second stepper of the set row, after the minutes.
 const speedCell = () => container.querySelector('.setrow').querySelectorAll('.stp')[1]
 const shown = () => speedCell().querySelector('input').value
 const header = () => container.querySelector('.sethead .r-sp').textContent
-const stored = () => useStore.getState().S.active.entries[0].sets[0].speed
+const storedSet = () => useStore.getState().S.active.entries[0].sets[0]
+const stored = () => storedSet().speed
 const tap = label => act(() => speedCell().querySelector(`button[aria-label="${label}"]`).click())
 function type(value) {
   const input = speedCell().querySelector('input')
@@ -49,38 +50,37 @@ function type(value) {
   })
 }
 
-describe('cardio speed in the set row', () => {
-  it('reads, steps and takes typing in mph for a profile in pounds, and stores km/h', () => {
+describe('cardio distance in the set row', () => {
+  // Cardio is logged as time + distance (lib/cardio.js); the speed column is gone, and the
+  // average speed is derived and stored, always in km/h, whatever speed unit the profile reads.
+  it('logs distance in km for a profile in pounds too, and stores the derived km/h', () => {
     mount({ unit: 'lb' })
-    expect(header()).toBe('Speed (mph)')
-    expect(shown()).toBe('4.97')   // 8 km/h
-    // A tap is half a mile an hour, not half a kilometre.
+    expect(header()).toBe('Distance (km)')
+    expect(shown()).toBe('3')
     tap('Increase')
-    expect(stored()).toBe(8.8)
-    expect(shown()).toBe('5.47')
-    type('6')
-    expect(stored()).toBe(9.66)
-    type('6.5')
-    expect(stored()).toBe(10.46)
-    expect(shown()).toBe('6.5')
+    expect(storedSet().km).toBe(3.1)
+    expect(stored()).toBe(9.3)   // 3.1 km in 20 min
+    type('4.5')
+    expect(storedSet().km).toBe(4.5)
+    expect(stored()).toBe(13.5)
+    expect(shown()).toBe('4.5')
   })
 
-  it('follows a chosen speed unit over the weight unit', () => {
+  it('does not follow a chosen speed unit: the column is a distance either way', () => {
     mount({ unit: 'kg', speedUnit: 'mph' })
-    expect(header()).toBe('Speed (mph)')
+    expect(header()).toBe('Distance (km)')
     mount({ unit: 'lb', speedUnit: 'kmh' })
-    expect(header()).toBe('Speed (km/h)')
-    expect(shown()).toBe('8')
+    expect(header()).toBe('Distance (km)')
+    expect(shown()).toBe('3')
   })
 
-  it('leaves a km/h profile exactly as it was', () => {
+  it('re-derives the speed when the minutes change, and reads an older set\'s distance as speed x time', () => {
     mount()
-    expect(header()).toBe('Speed (km/h)')
-    expect(shown()).toBe('8')
-    tap('Increase')
-    expect(stored()).toBe(8.5)
-    type('10.25')
-    expect(stored()).toBe(10.25)
+    const min = container.querySelector('.setrow').querySelectorAll('.stp')[0]
+    act(() => min.querySelector('button[aria-label="Increase"]').click())
+    expect(stored()).toBe(8.6)   // 3 km in 21 min
+    mount({}, [{ min: 30, speed: 8, done: false }])
+    expect(shown()).toBe('4')   // 8 km/h for half an hour
   })
 })
 
@@ -93,8 +93,8 @@ describe('the reference line in mph', () => {
 
   it('shows last time and the best set in mph for a profile in pounds', () => {
     mount({ unit: 'lb', workouts: [past] })
-    expect(refText()).toContain('20 min @ 10 mph')
+    expect(refText()).toContain('20 min · 5.4 km (10 mph)')
     mount({ unit: 'lb', workouts: [past], logRef: 'best' })
-    expect(refText()).toContain('20 min @ 10 mph')
+    expect(refText()).toContain('20 min · 5.4 km (10 mph)')
   })
 })

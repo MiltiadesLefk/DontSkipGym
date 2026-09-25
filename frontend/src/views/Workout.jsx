@@ -46,6 +46,7 @@ import { nextOpenSet, workoutKeyAction } from '../lib/workout-keys.js'
 import { MUSCLE_NAME } from '../lib/muscles.js'
 import FocusView from './FocusView.jsx'
 import { withMeaning, historyAs, dbLoadFor, entryDbLoad, bellsIn, ownedWeightsFor, stepOwned } from '../lib/dumbbells.js'
+import { withSpeed, cardioSet, kmOf } from '../lib/cardio.js'
 
 // How long after a key starts a hold the same key is not yet its "Done" (#133). A USB button
 // that bounces, or a double press, sends two presses a moment apart: the first starts the hold,
@@ -93,7 +94,7 @@ const viewOf = (col, value) => (col.view && value != null && value !== '' ? col.
 // on the wrong side of their numbers and the numbers after them turned round (8×15).
 const RTL_LETTER = /[֐-ࣿיִ-﷿ﹰ-﻿]/
 
-/* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+speed) ---------- */
+/* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+distance) ---------- */
 // `compact` shrinks the block for a superset member; `dense` (compact view) goes further and
 // drops everything that is not a set you are logging — media, tag chips, the note lines, the
 // "last time" recap and the progression line — leaving the name, the ⋯ menu, the one-line plan
@@ -285,8 +286,8 @@ function ExerciseBlock({ entryIdx, compact, dense, editing, onToggle, onToggleSi
   // Speed is stored in km/h and shown in the profile's unit (lib/speed.js): `view` turns the
   // stored number into the one on screen, `store` the one typed or stepped back into km/h.
   const speedUnit = speedUnitOf(S)
-  const col2 = cardio ? { f: 'speed', step: 0.5, dec: true, hd: speedUnit === 'mph' ? t('Speed (mph)') : t('Speed (km/h)'),
-    view: v => toSpeed(v, speedUnit), store: v => fromSpeed(v, speedUnit) }
+  // Cardio logs the distance; the average speed is derived from it and the time (lib/cardio.js)
+  const col2 = cardio ? { f: 'km', step: 0.1, dec: true, hd: t('Distance (km)') }
     : timed ? loadCol : repCol
   // Effort (RIR or RPE, whichever the profile logs) only makes sense for weighted rep sets,
   // not cardio/timed holds, and is opt-in since it adds a third stepper to every row. `opt`
@@ -310,7 +311,8 @@ function ExerciseBlock({ entryIdx, compact, dense, editing, onToggle, onToggleSi
     // with a fresh clone before the next tap fires. Reading from the store avoids that stale-
     // closure problem entirely and keeps every tap operating on the real current value.
     const fresh = useStore.getState().S.active?.entries[entryIdx]?.sets[i]
-    const cur = fresh ? fresh[col.f] : s[col.f]
+    const src = fresh || s
+    const cur = col.f === 'km' ? kmOf(src) : src[col.f]
     if (mode === 'reps' && col.f === 'w') return onField(i, col.f, stepLoad(cur, col.step, dir))
     // The step is in the unit on screen: +0.5 mph, not +0.5 km/h shown as +0.31.
     const next = Math.max(0, Math.round(((viewOf(col, cur) || 0) + dir * col.step) * 100) / 100)
@@ -325,7 +327,7 @@ function ExerciseBlock({ entryIdx, compact, dense, editing, onToggle, onToggleSi
   const cell = (s, i, col, cls) => (
     <div className={'stp ' + cls + (wc.steppers ? '' : ' plain')}>
       {wc.steppers && <button aria-label={t('Decrease')} onClick={() => bump(s, i, col, -1)}><Icon name="minus" /></button>}
-      <span className="val"><NumberField decimal={col.dec} nullable={col.opt} value={viewOf(col, s[col.f]) ?? ''}
+      <span className="val"><NumberField decimal={col.dec} nullable={col.opt} value={viewOf(col, col.f === 'km' ? kmOf(s) : s[col.f]) ?? ''}
         onChange={v => onField(i, col.f, col.store ? col.store(v) : v)} /></span>
       {wc.steppers && <button aria-label={t('Increase')} onClick={() => bump(s, i, col, 1)}><Icon name="plus" /></button>}
     </div>
@@ -1138,6 +1140,8 @@ function ActiveWorkout() {
     // Changing a work set's weight cascades to the following inherited work sets, so a correction
     // carries through without retyping every row while explicit manual exceptions stay put. A
     // warm-up edit stays on its own row, and the later rungs keep their ramp loads.
+    // Cardio: the average speed follows whichever of time or distance just changed
+    if (field === 'min' || field === 'km') e.sets[i] = withSpeed(e.sets[i])
     if (field === 'w') {
       e.sets[i].weightOrigin = WEIGHT_ORIGIN_MANUAL
       e.sets = cascadeWeight(e.sets, i, v, undefined, e.target?.backoffStep)
@@ -1147,7 +1151,7 @@ function ActiveWorkout() {
   const addSet = idx => mutEntry(idx, e => {
     const l = e.sets[e.sets.length - 1]
     const m = modeOf({ ...(e.target || {}), id: e.id })
-    if (m === 'cardio') e.sets.push({ min: l ? l.min : (e.target.min || 20), speed: l ? l.speed : (e.target.speed || 8), ...inclineFrom(l), done: false })
+    if (m === 'cardio') e.sets.push(cardioSet(l, e.target || {}, inclineFrom(l)))
     else if (m === 'time') {
       const sec = l ? l.sec : (e.target.sec || 45)
       const w = l ? (l.w || 0) : (e.target.weight || 0)

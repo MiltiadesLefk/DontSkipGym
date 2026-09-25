@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-// Stats charts cardio at its top speed per workout — in mph for a profile that reads mph
-// (Discord "miles per hour"), from the km/h the sets are stored in.
+// Stats charts cardio as the distance per workout (km); sets named in the list read their derived
+// speed in the profile's unit (mph for a pound profile).
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -36,19 +36,20 @@ function mount(settings) {
   return mocks.charts.find(c => c.color === 'var(--blue)')
 }
 
-describe('Stats — cardio speed', () => {
-  it('charts and names the best speed in mph for a pound profile', () => {
+describe('Stats — cardio distance', () => {
+  // Cardio charts as the distance per workout, in km whatever the profile's weight/speed unit;
+  // the best-session line still reads its speed in the profile's unit.
+  it('charts distance per workout in km for a pound profile, naming the session in mph', () => {
     const chart = mount({ unit: 'lb' })
-    expect(chart.unit).toBe('mph')
-    expect(chart.points.map(p => p.y)).toEqual([6, 10])
-    expect(host.textContent).toContain('10 mph')
-    expect(host.textContent).toContain('20 min @ 10 mph')
+    expect(chart.unit).toBe('km')
+    expect(chart.points.map(p => p.y)).toEqual([5.89, 5.36])
+    expect(host.textContent).toContain('20 min · 5.4 km (10 mph)')
   })
 
-  it('keeps km/h for a kg profile', () => {
+  it('names the session in km/h for a kg profile', () => {
     const chart = mount({ unit: 'kg' })
-    expect(chart.unit).toBe('km/h')
-    expect(chart.points.map(p => p.y)).toEqual([9.66, 16.09])
-    expect(host.textContent).toContain('16.1 km/h')
+    expect(chart.unit).toBe('km')
+    expect(chart.points.map(p => p.y)).toEqual([5.89, 5.36])
+    expect(host.textContent).toContain('20 min · 5.4 km (16.1 km/h)')
   })
 })

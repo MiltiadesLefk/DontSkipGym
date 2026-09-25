@@ -50,7 +50,7 @@ describe('a Strong export', () => {
     const plank = upper.entries.find(e => e.sets[0].sec != null)
     expect(plank).toBeTruthy()
     expect(plank.sets).toEqual([{ sec: 60, w: 0, done: true }])
-    expect(legs.entries[1].sets).toEqual([{ min: 20, speed: 9, done: true }])
+    expect(legs.entries[1].sets).toEqual([{ min: 20, km: 3, speed: 9, done: true }])
   })
 })
 

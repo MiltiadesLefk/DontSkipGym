@@ -55,12 +55,12 @@ describe('inclineFits', () => {
 
 describe('a set with an incline', () => {
   it('reads with its grade, and a flat or older set reads exactly as before', () => {
-    expect(setLabel(TREADMILL, { min: 30, speed: 5.5, incline: 12, done: true })).toBe('30 min @ 5.5 km/h · 12% incline')
-    expect(setLabel(TREADMILL, { min: 30, speed: 5.5, incline: 7.5 })).toBe('30 min @ 5.5 km/h · 7.5% incline')
-    expect(setLabel(TREADMILL, { min: 30, speed: 5.5, incline: 0 })).toBe('30 min @ 5.5 km/h')
-    expect(setLabel(TREADMILL, { min: 30, speed: 5.5 })).toBe('30 min @ 5.5 km/h')
+    expect(setLabel(TREADMILL, { min: 30, speed: 5.5, incline: 12, done: true })).toBe('30 min · 2.8 km (5.5 km/h) · 12% incline')
+    expect(setLabel(TREADMILL, { min: 30, speed: 5.5, incline: 7.5 })).toBe('30 min · 2.8 km (5.5 km/h) · 7.5% incline')
+    expect(setLabel(TREADMILL, { min: 30, speed: 5.5, incline: 0 })).toBe('30 min · 2.8 km (5.5 km/h)')
+    expect(setLabel(TREADMILL, { min: 30, speed: 5.5 })).toBe('30 min · 2.8 km (5.5 km/h)')
     // In mph too: the grade is a percentage either way.
-    expect(setLabel(TREADMILL, { min: 30, speed: 16.09344, incline: 4 }, null, 'mph')).toBe('30 min @ 10 mph · 4% incline')
+    expect(setLabel(TREADMILL, { min: 30, speed: 16.09344, incline: 4 }, null, 'mph')).toBe('30 min · 8.1 km (10 mph) · 4% incline')
   })
 
   it('knows which sets carry one and what a new row takes over', () => {
@@ -77,16 +77,16 @@ describe('a set with an incline', () => {
     const cfg = { id: TREADMILL, sets: 2, min: 20, speed: 8 }
     const last = sets => ({ exWeights: {}, workouts: [{ id: 'w1', d: '2026-10-01', start: 0, end: 1, entries: [{ id: TREADMILL, target: { sets: 2, min: 20, speed: 8 }, sets }] }] })
     expect(buildSets(last([{ min: 25, speed: 5, incline: 10, done: true }, { min: 10, speed: 6, done: true }]), cfg)).toEqual([
-      { min: 25, speed: 5, incline: 10, done: false },
-      { min: 10, speed: 6, done: false },
+      { min: 25, km: 2.08, speed: 5, incline: 10, done: false },
+      { min: 10, km: 1, speed: 6, done: false },
     ])
     expect(buildSets(last([{ min: 25, speed: 5, done: true }]), cfg)).toEqual([
-      { min: 25, speed: 5, done: false },
-      { min: 25, speed: 5, done: false },
+      { min: 25, km: 2.08, speed: 5, done: false },
+      { min: 25, km: 2.08, speed: 5, done: false },
     ])
     expect(buildSets({ exWeights: {}, workouts: [] }, cfg)).toEqual([
-      { min: 20, speed: 8, done: false },
-      { min: 20, speed: 8, done: false },
+      { min: 20, km: 2.67, speed: 8, done: false },
+      { min: 20, km: 2.67, speed: 8, done: false },
     ])
   })
 
@@ -99,7 +99,7 @@ describe('a set with an incline', () => {
   it('is in the workout copied as text', () => {
     const w = { id: 'w', d: '2026-10-01', start: 0, end: 30 * 60000, name: 'Walk', vol: 0,
       entries: [{ id: TREADMILL, target: { mode: 'cardio' }, sets: [{ min: 30, speed: 5.5, incline: 12, done: true }] }] }
-    expect(workoutText(w, { unit: 'kg', nameOf: () => 'treadmill' })).toContain('30 min @ 5.5 km/h · 12% incline')
+    expect(workoutText(w, { unit: 'kg', nameOf: () => 'treadmill' })).toContain('30 min · 2.8 km (5.5 km/h) · 12% incline')
   })
 
   it('is in the finish summary, which lists the cardio the lift rows leave out', () => {
@@ -112,7 +112,7 @@ describe('a set with an incline', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0].id).toBe(TREADMILL)
     expect(rows[0].sets).toEqual([{ min: 20, speed: 5, incline: 9, done: true }])
-    expect(setLabel(rows[0].id, rows[0].sets[0], rows[0].target)).toBe('20 min @ 5 km/h · 9% incline')
+    expect(setLabel(rows[0].id, rows[0].sets[0], rows[0].target)).toBe('20 min · 1.7 km (5 km/h) · 9% incline')
     expect(finishCardio({})).toEqual([])
   })
 })
@@ -128,10 +128,10 @@ describe('importing an incline', () => {
       '2026/01/25,2:22 PM,Walk,,30,0,Walking,No,0,Normal,0,0,3,1800,,,,',
     ].join('\n')
     const sets = parseWorkoutCSV(csv, { unit: 'kg' }).workouts.map(w => w.entries[0].sets[0])
-    expect(sets[0]).toEqual({ min: 30, speed: 6, incline: 12, done: true })
+    expect(sets[0]).toEqual({ min: 30, km: 3, speed: 6, incline: 12, done: true })
     expect(sets[1].incline).toBe(8.5)
     expect(sets[2].incline).toBe(INCLINE_MAX)
-    expect(sets[3]).toEqual({ min: 30, speed: 6, done: true })
+    expect(sets[3]).toEqual({ min: 30, km: 3, speed: 6, done: true })
   })
   it('never puts a grade on a lifting set', () => {
     const csv = [head, '2026/01/01,1:11 PM,Push Day,,11,11,Chin Up,No,1,Normal,11,11,0,,5,,,'].join('\n')

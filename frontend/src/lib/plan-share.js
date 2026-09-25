@@ -16,11 +16,12 @@ import { isPyramid, normalizePyramid, normalizePyramidRest, normalizePyramidWeig
 import { isBackoff } from './backoff.js'
 import { dbLoadOf } from './dumbbells.js'
 import { MAX_TRIPLE_SETS } from './progression.js'
-import { uid, todayISO, DAYN, weekOrder, weekStartOf, exCount } from './format.js'
+import { uid, todayISO, DAYN, weekOrder, weekStartOf, exCount, fmtNum } from './format.js'
 import { t, exerciseNameFor, exerciseNameClass, getLang, RTL_LANGS } from './i18n-core.js'
 import { convertWeight } from './units.js'
 import { fmtSpeed, speedUnitOf } from './speed.js'
 import { MUSCLES, inMuscleOrder } from './muscles.js'
+import { kmOf } from './cardio.js'
 
 const PLAN_FMT = 1
 const WEEK_DAYS = [1, 2, 3, 4, 5, 6, 0]   // every getDay() index; only the reader's own
@@ -72,7 +73,8 @@ function cleanEx(e) {
   const mode = modeOf(e)
   if (mode === 'cardio') {
     if (e.min != null) o.min = e.min
-    if (e.speed != null) o.speed = e.speed
+    if (e.km != null) o.km = e.km
+    if (e.speed != null) o.speed = e.speed    // kept for readers that predate distance
   } else if (mode === 'time') {
     // Written out even though 'reps' is the fallback for a non-cardio id: a plan file that
     // dropped the mode would turn a 45-second plank into a 45-rep one at the other end.
@@ -333,7 +335,7 @@ function scheme(e, unit, speedUnit) {
   const sets = e.sets || 1
   const mode = modeOf(e)
   if (mode === 'cardio') {
-    const body = `${e.min || 20} min @ ${fmtSpeed(e.speed || 8, speedUnit)}`
+    const body = `${e.min || 20} min · ${fmtNum(kmOf(e) || 3)} km`
     return sets > 1 ? `${sets} × ${body}` : body
   }
   const line = exLine({ ...e, reps: e.reps ?? 10 }, unit, speedUnit)

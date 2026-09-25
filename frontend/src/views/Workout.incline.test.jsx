@@ -48,10 +48,10 @@ function type(input, value) {
 }
 
 describe('the incline column', () => {
-  it('sits after the speed on a treadmill, steps in half percents and stores on the set', () => {
+  it('sits after the distance on a treadmill, steps in half percents and stores on the set', () => {
     mount(TREADMILL, [{ min: 20, speed: 5, done: false }])
     expect(cells()).toHaveLength(3)
-    expect(heads()).toEqual(['Duration (min)', 'Speed (km/h)', 'Incline (%)'])
+    expect(heads()).toEqual(['Duration (min)', 'Distance (km)', 'Incline (%)'])
     // No grade logged yet: the field is empty, not a 0 nobody typed.
     expect(inclineCell().querySelector('input').value).toBe('')
     expect('incline' in stored()).toBe(false)

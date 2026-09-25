@@ -227,7 +227,7 @@ describe('mergeImport adds and never overwrites', () => {
         expect(e.sets.length).toBeGreaterThan(0)
       }
     }
-    expect(S.workouts[2].entries[0].sets[0]).toEqual({ min: 30, speed: 10, done: true })
+    expect(S.workouts[2].entries[0].sets[0]).toEqual({ min: 30, km: 5, speed: 10, done: true })
   })
 
   it('weigh-ins: existing days win and the list stays sorted', () => {

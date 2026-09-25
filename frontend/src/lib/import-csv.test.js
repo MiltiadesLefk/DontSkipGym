@@ -48,7 +48,7 @@ describe('gravl export', () => {
     expect(lift.entries[0].sets).toEqual([{ w: 11, r: 11, done: true }])
 
     // "Set Duration (sec)" is seconds, not minutes: read as `time` it would land as 22 minutes.
-    expect(cardio.entries[0].sets).toEqual([{ min: 0.4, speed: 0, done: true }])
+    expect(cardio.entries[0].sets).toEqual([{ min: 0.4, km: 0, speed: 0, done: true }])
   })
 })
 
