@@ -367,14 +367,23 @@ describe('CheckIn — adding a card', () => {
     expect(mocks.S.lastGymCardId).toBe(mocks.S.gymCards[1].id)
   })
 
-  it('a barcode we could read but could not redraw is refused, and never reaches the form', async () => {
+  it('a code we could read but could not redraw (PDF417) is refused, and never reaches the form', async () => {
+    mocks.MOBILE = true
+    mocks.scanCode.mockResolvedValue({ value: '5901234123457', fmt: 'PDF_417' })
+    await openAdd()
+    await tap(sheetBtn('Scan'))
+    expect(mocks.toast).toHaveBeenCalledWith("That code type can't be shown here — QR codes and common barcodes (Code 128, EAN, UPC, Code 39, ITF, Codabar) can")
+    expect(sheetBtn('Save card').disabled).toBe(true)
+    expect(sheetHost.querySelector('[data-qr]')).toBeFalsy()
+  })
+
+  it('a 1D barcode we can redraw (EAN-13) is accepted and keeps its symbology', async () => {
     mocks.MOBILE = true
     mocks.scanCode.mockResolvedValue({ value: '5901234123457', fmt: 'EAN_13' })
     await openAdd()
     await tap(sheetBtn('Scan'))
-    expect(mocks.toast).toHaveBeenCalledWith("That's not a QR code. Only QR cards can be shown here")
-    expect(sheetBtn('Save card').disabled).toBe(true)
-    expect(sheetHost.querySelector('[data-qr]')).toBeFalsy()
+    await tap(sheetBtn('Save card'))
+    expect(mocks.S.gymCards[0]).toMatchObject({ value: '5901234123457', fmt: 'ean13' })
   })
 
   it('backing out of the native scanner leaves the form as it was and re-enables the buttons', async () => {
@@ -425,9 +434,9 @@ describe('CheckIn — adding a card', () => {
     await tap(sheetBtn('Scan'))
     const closeCam = vi.fn()
     act(() => { camRoot.render(mocks.sheets.at(-1)(closeCam)) })
-    await act(async () => { mocks.camera.onFound({ value: '5901234123457', fmt: 'EAN_13' }) })
+    await act(async () => { mocks.camera.onFound({ value: '5901234123457', fmt: 'PDF_417' }) })
     expect(closeCam).toHaveBeenCalledTimes(1)
-    expect(mocks.toast).toHaveBeenCalledWith("That's not a QR code. Only QR cards can be shown here")
+    expect(mocks.toast).toHaveBeenCalledWith("That code type can't be shown here — QR codes and common barcodes (Code 128, EAN, UPC, Code 39, ITF, Codabar) can")
     expect(sheetBtn('Save card').disabled).toBe(true)
   })
 })
@@ -480,15 +489,15 @@ describe('CheckIn — importing a photo', () => {
     mocks.importCodeFromImage.mockResolvedValue(null)
     await openAdd()
     await pickFile()
-    expect(mocks.toast).toHaveBeenCalledWith('No QR code found in that image')
+    expect(mocks.toast).toHaveBeenCalledWith('No QR code or barcode found in that image')
     expect(sheetBtn('Save card').disabled).toBe(true)
   })
 
-  it('a photo of a non-QR barcode is refused for the same reason a scan of one is', async () => {
-    mocks.importCodeFromImage.mockResolvedValue({ value: '5901234123457', fmt: 'CODE_128' })
+  it('a photo of an unredrawable symbology is refused for the same reason a scan of one is', async () => {
+    mocks.importCodeFromImage.mockResolvedValue({ value: '5901234123457', fmt: 'PDF_417' })
     await openAdd()
     await pickFile()
-    expect(mocks.toast).toHaveBeenCalledWith("That's not a QR code. Only QR cards can be shown here")
+    expect(mocks.toast).toHaveBeenCalledWith("That code type can't be shown here — QR codes and common barcodes (Code 128, EAN, UPC, Code 39, ITF, Codabar) can")
     expect(sheetBtn('Save card').disabled).toBe(true)
   })
 
@@ -556,9 +565,9 @@ describe('CheckIn — editing a card', () => {
     expect(mocks.S.gymCards[1].label).toBe('Gym card')
   })
 
-  it('a re-scan that is not a QR code cannot overwrite the working code already on the card', async () => {
+  it('a re-scan of an unredrawable symbology cannot overwrite the working code already on the card', async () => {
     mocks.MOBILE = true
-    mocks.scanCode.mockResolvedValue({ value: '5901234123457', fmt: 'EAN_13' })
+    mocks.scanCode.mockResolvedValue({ value: '5901234123457', fmt: 'PDF_417' })
     await openEdit('b')
     await tap(sheetBtn('Re-scan'))
     await tap(sheetBtn('Save card'))
