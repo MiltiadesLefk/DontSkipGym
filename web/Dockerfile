@@ -13,6 +13,9 @@ FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 # have to keep the same relative position they have in the repository. Copying frontend/ alone
 # is exactly what made the v1.2.15 web image fail to build.
 WORKDIR /app/frontend
+# Rebranding, see frontend/src/lib/brand.js. Empty keeps the default name.
+ARG VITE_APP_NAME=
+ENV VITE_APP_NAME=$VITE_APP_NAME
 COPY frontend/package.json frontend/package-lock.json* ./
 # --ignore-scripts: the web image only needs `vite build`; the one heavy postinstall in this tree
 # (@capacitor/assets -> sharp, a libvips download from GitHub) is for drawing app icons and has
