@@ -3,6 +3,7 @@ import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Settings from './Settings.jsx'
+import { SOURCE_URL } from '../lib/demo.js'
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
@@ -154,9 +155,9 @@ describe('Settings — reset everything', () => {
 })
 
 describe('Settings — footer', () => {
-  it('links the source code to its home on GitHub, on About & updates', () => {
+  it('links the source code to the running build\'s own tarball (AGPL §13), on About & updates', () => {
     act(() => root.render(<Settings page="about" />))
     const link = [...host.querySelectorAll('a')].find(a => a.textContent === 'Source code')
-    expect(link.getAttribute('href')).toBe('https://github.com/DuarteSantos8/openGym')
+    expect(link.getAttribute('href')).toBe(SOURCE_URL)
   })
 })

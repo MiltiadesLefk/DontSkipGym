@@ -12,3 +12,8 @@
 export const DEMO = import.meta.env.VITE_DEMO === '1'
 export const DEMO_SEEDED = 'gym_demo_seeded_v1'
 export const REPO = 'https://gitlab.com/DuarteSantos8/opengym'
+// AGPL §13: everyone using a hosted instance must be able to get the source of the code that is
+// actually running, modifications included — a link to upstream says nothing about a modified
+// instance. The web image packs its own build context as this tarball, so the link is always
+// exact. Relative, because the app is built with base './'.
+export const SOURCE_URL = import.meta.env.VITE_SOURCE_URL || 'source.tar.gz'

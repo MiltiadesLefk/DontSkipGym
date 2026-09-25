@@ -26,6 +26,16 @@ COPY frontend/ ./
 ARG APP_BUILD=""
 RUN APP_BUILD="$APP_BUILD" npm run build
 
+# AGPL §13: pack the exact source this image is built from, served as /source.tar.gz and linked
+# from Settings. .dockerignore already keeps data, media, .env and .git out of the context; the
+# excludes below are the second line of defence. catalogue/media is Gym visual's licensed media,
+# not AGPL code, so it never goes into the tarball.
+FROM alpine AS source
+COPY . /src
+RUN tar -czf /source.tar.gz -C /src \
+      --exclude=./.git --exclude=./media --exclude=./data --exclude=./coach-auth --exclude=./catalogue/media \
+      --exclude='./.env' --exclude='./.env.*' --exclude='node_modules' --exclude='dist' .
+
 FROM nginxinc/nginx-unprivileged:alpine
 # Same reason as in api/Dockerfile: alpine fixes land faster than the nginx image is rebuilt.
 # The base's last instruction is USER 101, and apk then exits 99 — it cannot open its log as
@@ -78,6 +88,7 @@ COPY --from=build /app/frontend/dist /usr/share/nginx/html
 # The exercise stills and animations, 180 px, licensed from Gym visual for openGym only: see
 # catalogue/media/NOTICE.md. They ship inside the image; nothing is downloaded at start-up.
 COPY catalogue/media/ /usr/share/nginx/html/exercise-media/
+COPY --from=source /source.tar.gz /usr/share/nginx/html/source.tar.gz
 
 # Set Default ENVs for nginx
 ENV NGINX_PORT=80

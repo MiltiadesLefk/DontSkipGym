@@ -56,6 +56,10 @@ function BuiltinMedia({ ex, id, compact, minimizable }) {
             // the phone app is still reading the clip into memory: the still holds its place
             ? <img decoding="async" draggable={false} src={imgSrc(ex, body)} alt={exerciseNameFor(ex)} />
           : <img decoding="async" draggable={false} src={showGif ? gifSrc(ex, body) : imgSrc(ex, body)} alt={exerciseNameFor(ex)} onError={onError} />}
+      {/* The media's terms require the rights holder's notice on every use, not only in Settings */}
+      {failed !== 'all' && <span className="gifcredit">
+        <a href="https://gymvisual.com/" target="_blank" rel="noopener" onClick={e => e.stopPropagation()}>© Gym visual</a>
+      </span>}
       {minimizable && (
         <button className="giftoggle" onClick={toggleSize}>
           <Icon name={mini ? 'expand' : 'minimize'} />{mini ? t('Expand') : t('Minimize')}
