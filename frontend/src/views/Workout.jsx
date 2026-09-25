@@ -22,6 +22,7 @@ import { glyphOf } from '../lib/glyphs.js'
 import { isWarmupRow, isDropSet, isRestPauseSet, dropsOf, clustersOf, addDrop, addCluster, removeDropAt, removeClusterAt, setDropAt, setClusterAt, nextDropWeight, nextBurstReps, isSideSet, makeSideSet, setSideField, toggleSide, addSideDrop, removeSideDropAt, setSideDropAt, addSideCluster, removeSideClusterAt, setSideClusterAt } from '../lib/workout-model.js'
 import { canMoveActiveWorkoutUnit, moveActiveWorkoutUnit } from '../lib/active-workout-order.js'
 import { MUSCLE_NAME } from '../lib/muscles.js'
+import { withSpeed, cardioSet } from '../lib/cardio.js'
 
 const SWIPE_MIN_DISTANCE = 48
 const SWIPE_AXIS_RATIO = 1.25
@@ -68,7 +69,7 @@ function Elapsed({ start }) {
   return <span>{t}</span>
 }
 
-/* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+speed) ---------- */
+/* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+distance) ---------- */
 // `compact` shrinks the block for a superset member; `dense` (compact view) goes further and
 // drops everything that is not a set you are logging — media, tag chips, the note lines, the
 // "last time" recap and the progression line — leaving the name, the ⋯ menu and the sets.
@@ -161,7 +162,7 @@ function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onFie
   const col1 = cardio ? { f: 'min', step: 1, dec: false, hd: t('Duration (min)') }
     : timed ? { f: 'sec', step: 5, dec: false, hd: t('Seconds') }
       : (bw && !added) ? repCol : loadCol
-  const col2 = cardio ? { f: 'speed', step: 0.5, dec: true, hd: t('Speed (km/h)') }
+  const col2 = cardio ? { f: 'km', step: 0.1, dec: true, hd: t('Distance (km)') }
     : timed ? ((bw && !added) ? null : loadCol)
       : (bw && !added) ? null : repCol
   // Effort (RIR or RPE, whichever the profile logs) only makes sense for weighted rep sets,
@@ -631,6 +632,8 @@ function ActiveWorkout() {
   // what was actually logged — in the session, in history and in a backup.
   const setField = (idx, i, field, v) => mutEntry(idx, e => {
     if (v == null) delete e.sets[i][field]; else e.sets[i][field] = v
+    // Cardio: the average speed follows whichever of time or distance just changed
+    if (field === 'min' || field === 'km') e.sets[i] = withSpeed(e.sets[i])
     // Changing a weight cascades to the following sets of the same phase, so a
     // heavier bar carries through the set instead of retyping every row.
     if (field === 'w') {
@@ -641,7 +644,7 @@ function ActiveWorkout() {
   const addSet = idx => mutEntry(idx, e => {
     const l = e.sets[e.sets.length - 1]
     const m = modeOf({ ...(e.target || {}), id: e.id })
-    if (m === 'cardio') e.sets.push({ min: l ? l.min : (e.target.min || 20), speed: l ? l.speed : (e.target.speed || 8), done: false })
+    if (m === 'cardio') e.sets.push(cardioSet(l, e.target || {}))
     else if (m === 'time') e.sets.push({ sec: l ? l.sec : (e.target.sec || 45), w: l ? (l.w || 0) : (e.target.weight || 0), done: false })
     else {
       const row = { w: l ? l.w : 0, r: l ? l.r : e.target.reps, done: false }

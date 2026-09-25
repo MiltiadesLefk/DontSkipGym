@@ -16,13 +16,14 @@ const workRowsForMode = (entry = {}, mode = 'reps') => {
 // for the hook — and it re-exports this very `t` from core, so nothing changes here except what
 // gets dragged along behind it.
 import { t } from './i18n-core.js'
+import { kmOf, avgSpeed, cardioSet } from './cardio.js'
 
 // How an exercise is logged (issue #16). This used to be derived from the body part alone,
 // which meant a plank or a farmer's carry could only be timed by filing it under cardio.
 // A routine entry can now say so explicitly:
 //   reps   — weight × reps      sets look like { w, r }
 //   time   — a work duration    sets look like { sec, w }   (w = 0 for bodyweight)
-//   cardio — duration + speed   sets look like { min, speed }
+//   cardio — duration + distance  sets look like { min, km, speed } (speed derived, see cardio.js)
 // An entry without `mode` behaves exactly as before, so every existing plan, workout and
 // plan file is read unchanged and nothing needs migrating.
 export function modeOf(cfg) {
@@ -110,8 +111,11 @@ export function setLabel(id, s, cfg) {
   let mode = modeOf(c)
   // A set saved by an older build carries no target with it; the set's own fields still say what
   // it was — seconds for a timed set, minutes for cardio — so those are not read back as "0 reps".
-  if (!cfg && !(s.r > 0)) { if (s.min > 0 || s.speed > 0) mode = 'cardio'; else if (s.sec > 0) mode = 'time' }
-  if (mode === 'cardio') return `${s.min || 0} min @ ${fmtNum(s.speed || 0)} km/h`
+  if (!cfg && !(s.r > 0)) { if (s.min > 0 || s.speed > 0 || s.km > 0) mode = 'cardio'; else if (s.sec > 0) mode = 'time' }
+  if (mode === 'cardio') {
+    const km = kmOf(s), v = avgSpeed(s.min, km)
+    return `${s.min || 0} min · ${fmtNum(km)} km` + (v > 0 ? ` (${fmtNum(v)} km/h)` : '')
+  }
   if (mode === 'time') return fmtSec(s.sec) + (s.w > 0 ? ` · ${fmtNum(s.w)}` : '')
   const bw = isBw({ ...c, id: c.id ?? id })
   // One side's "weight×reps" (or bodyweight "reps" / "+belt × reps"), the same shape a whole
@@ -136,7 +140,7 @@ export function setLabel(id, s, cfg) {
 // Default config for a freshly added exercise.
 export function defaultConfig(id, mode) {
   const m = mode || modeOf({ id })
-  if (m === 'cardio') return { sets: 1, min: 20, speed: 8 }
+  if (m === 'cardio') return { sets: 1, min: 20, km: 3 }
   // Written only when it is true, so a barbell config is byte-for-byte what it was before
   // the flag existed and a plan file gains nothing it does not need.
   const bw = isBodyweightEq(id) ? { bodyweight: true } : {}
@@ -150,7 +154,7 @@ export function exLine(cfg, unit) {
   const n = cfg.sets || 1
   // Added weight reads as added: "+10 kg" on a dip belt, "60 kg" on a barbell.
   const load = cfg.weight ? ' · ' + (isBw(cfg) ? '+' : '') + fmtNum(cfg.weight) + ' ' + unit : ''
-  if (mode === 'cardio') return `${n} × ${cfg.min || 20} min @ ${fmtNum(cfg.speed || 8)} km/h`
+  if (mode === 'cardio') return `${n} × ${cfg.min || 20} min · ${fmtNum(kmOf(cfg) || 3)} km`
   if (mode === 'time') return `${n} × ${fmtSec(cfg.sec || 45)}${load}`
   // This is the line with room for it, so the split is spelled out: "3 × 16 · 8/side".
   const split = isPerSide(cfg) ? ' · ' + t('{0}/side', fmtNum(sideReps(cfg.reps))) : ''
@@ -392,7 +396,7 @@ function buildWorkSets(S, cfg, options = {}) {
   if (mode === 'cardio') {
     for (let i = 0; i < n; i++) {
       const prev = prevAt(i)
-      sets.push({ min: prev ? prev.min : (cfg.min || 20), speed: prev ? prev.speed : (cfg.speed || 8), done: false })
+      sets.push(cardioSet(prev, cfg))
     }
     return sets
   }
@@ -654,9 +658,7 @@ export function insertWarmupRow(rows, mode, target, step = 2.5) {
   }
   const warm = mode === 'cardio'
     ? {
-      min: prev ? prev.min : (work ? work.min : (target.min || 20)),
-      speed: prev ? prev.speed : (work ? work.speed : (target.speed || 8)),
-      done: false, phase: 'warmup', warmup: true,
+      ...cardioSet(prev || work, target, { phase: 'warmup', warmup: true }),
     }
     : mode === 'time'
       ? {

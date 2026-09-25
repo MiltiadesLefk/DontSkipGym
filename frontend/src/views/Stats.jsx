@@ -22,6 +22,7 @@ import {
 import { Button, Segmented, SelectRow } from '../components/ui.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
 import { isWarmupRow } from '../lib/workout-model.js'
+import { entryKm } from '../lib/cardio.js'
 
 // Which muscles the training in a window actually hit — and, the point of the card,
 // which ones it keeps missing. Shading is relative within the window (lib/muscles.js).
@@ -339,8 +340,8 @@ export default function Stats() {
       if (!en) continue
       const mode = metricModeForEntry(en) || modeOf({ id })
       const rows = metricRowsForEntry(en, mode)
-      const mx = mode === 'reps' ? bestWeightForEntry(en) : Math.max(0, ...rows.map(s => mode === 'cardio' ? (s.speed || 0) : mode === 'time' ? (s.sec || 0) : (s.w || 0)))
-      if (mx > 0) return { mx, unit: mode === 'cardio' ? 'km/h' : mode === 'time' ? 's' : S.unit }
+      const mx = mode === 'reps' ? bestWeightForEntry(en) : mode === 'cardio' ? entryKm(rows) : Math.max(0, ...rows.map(s => mode === 'time' ? (s.sec || 0) : (s.w || 0)))
+      if (mx > 0) return { mx, unit: mode === 'cardio' ? 'km' : mode === 'time' ? 's' : S.unit }
       // Unloaded reps work still has a current figure — its rep count. Without this the whole
       // picker label went blank and the exercise sorted to the bottom as if it had no history.
       if (mode === 'reps') {
@@ -378,8 +379,8 @@ export default function Stats() {
     return en && bestWeightForEntry(en) > 0
   })
   const bestRepsOf = en => Math.max(0, ...metricRowsForEntry(en, 'reps').map(s => Number(s.r) || 0))
-  const metric = s => curCardio ? (s.speed || 0) : curTimed ? (s.sec || 0) : (s.w || 0)
-  const exUnit = curCardio ? 'km/h' : curTimed ? 's' : repsOnly ? t('reps') : S.unit
+  const metric = s => curTimed ? (s.sec || 0) : (s.w || 0)
+  const exUnit = curCardio ? 'km' : curTimed ? 's' : repsOnly ? t('reps') : S.unit
   let exPts = [], exList = [], exBest = 0
   if (curEx) {
     workouts.forEach(w => {
@@ -388,13 +389,14 @@ export default function Stats() {
         const loggedMode = metricModeForEntry(en)
         if (loggedMode !== curMode) return
         const doneSets = metricRowsForEntry(en, curMode)
+        // Cardio charts the session's distance: every interval added up, however the pace varied
         const mx = curMode === 'reps'
           ? (repsOnly ? bestRepsOf(en) : bestWeightForEntry(en))
-          : Math.max(0, ...doneSets.map(metric))
+          : curMode === 'cardio' ? entryKm(doneSets) : Math.max(0, ...doneSets.map(metric))
         if (mx > 0) {
           exPts.push({ t: w.start, y: mx, d: w.d, sets: doneSets, target: en.target })
           // Weighted work on an assistance machine reads the other way: the smallest load is the
-          // best (issue #232). Reps, duration and speed are always "more is better".
+          // best (issue #232). Reps, duration and distance are always "more is better".
           const better = curMode === 'reps' && !repsOnly ? betterWeight(curEx, exBest || mx, mx) : Math.max(exBest, mx)
           exBest = exBest > 0 ? better : mx
         }
@@ -489,7 +491,7 @@ export default function Stats() {
           <div style={{ marginTop: 8 }}>{exList.map((p, i) => <div key={i} className="row between small" style={{ padding: '6px 0', borderBottom: 'var(--hair) solid var(--sep)' }}>
             <span className="muted">{fmtDate(p.d, true)}</span><span>{p.sets.map(s => setLabel(curEx, s, p.target)).join('  ')}</span></div>)}</div>
           <div className="small dim" style={{ marginTop: 8 }}>
-            {onEff ? t('Average effort per workout') : onE1 ? t('Estimated 1RM per workout') : curCardio ? t('Top speed per workout') : curTimed ? t('Longest hold per workout') : repsOnly ? t('Most reps in a set per workout') : t('Best set weight per workout')}
+            {onEff ? t('Average effort per workout') : onE1 ? t('Estimated 1RM per workout') : curCardio ? t('Distance per workout') : curTimed ? t('Longest hold per workout') : repsOnly ? t('Most reps in a set per workout') : t('Best set weight per workout')}
             {onEff ? '' : <> · {t('Best:')}{' '}<b className="accent">{fmtNum(onE1 ? e1Best.est : exBest)} {onE1 ? S.unit : exUnit}</b></>}
           </div>
           {onE1 && <div className="small dim" style={{ marginTop: 4 }}>
