@@ -174,8 +174,44 @@ SOFTWARE.
 In a browser (including the installed PWA), reading a code from the camera or from an imported
 photo uses [**jsQR**](https://github.com/cozmo/jsQR) by Cosmo Wolfe, under the **Apache License
 2.0** (text at <https://www.apache.org/licenses/LICENSE-2.0> and in the package's own `LICENSE`).
-Where the browser has a native `BarcodeDetector`, that is tried first and jsQR is the fallback.
+Where the browser has a native `BarcodeDetector`, that is tried first (for every format it
+supports) and jsQR is the fallback for QR codes.
 Video frames are decoded in memory and never uploaded or stored.
+
+### Barcode rendering — `JsBarcode`
+
+Cards that carry a 1D barcode (Code 128/39, EAN-13/8, UPC-A/E, ITF, Codabar) rather than a QR are
+redrawn with [**JsBarcode**](https://github.com/lindell/JsBarcode) by Johan Lindell, used under the
+**MIT License** and reproduced below. As with QR codes, only the value and its symbology are
+stored; the bars are generated fresh each time the card is shown.
+
+```
+Copyright (c) 2016 Johan Lindell (johan@lindell.me)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or
+substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### Barcode decode in the browser — `@zxing/library`
+
+Reading a 1D barcode from the camera or an imported photo in the browser, where jsQR finds no QR
+code and the browser has no native `BarcodeDetector` for it, uses
+[**ZXing for JS**](https://github.com/zxing-js/library) (`@zxing/library`, a port of the ZXing
+project), under the **Apache License 2.0** (text at <https://www.apache.org/licenses/LICENSE-2.0>
+and in the package's own `LICENSE`). Frames and photos are decoded in memory and never uploaded
+or stored.
 
 ### Camera scan & photo decode in the app — `@capacitor-mlkit/barcode-scanning`
 

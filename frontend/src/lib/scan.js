@@ -13,8 +13,8 @@
 // What comes back is a normalized { value, fmt } (or null when the user cancels / nothing was
 // found). `value` is the code's machine-readable content; `fmt` is a lower-cased symbology token
 // matching lib/qr.js's normalizeFmt. The caller checks canRenderFmt(fmt) before saving — we can
-// read many barcode kinds but only redraw QR, so a non-QR code is reported and refused there, not
-// silently stored.
+// read more kinds than we can redraw (QR and the common 1D barcodes), so anything else is
+// reported and refused there, not silently stored.
 import { MOBILE } from './mobile.js'
 import { normalizeFmt } from './qr.js'
 
