@@ -61,6 +61,11 @@ function claimFirstAdmin(req, user) {
   user.admin = true;
   audit(req, 'admin.first-user', { user });
 }
+// Bootstraps the first admin on an invite-only instance, which otherwise has nobody who can mint
+// the first invite (ADMIN_UIDS needs a uid that does not exist yet). Honoured only while the
+// instance has zero users: the first account registered with it becomes admin, and from then on
+// the code is dead.
+const SETUP_CODE = String(process.env.SETUP_CODE || '').trim().toUpperCase();
 // Guest mode ("Continue without account") keeps everything in the browser and never touches this
 // server — but on an instance meant for a known set of people, an entrance nobody can walk back
 // out of is still the wrong front door (#42). Default ON, so existing instances are unchanged;
@@ -113,6 +118,12 @@ const lock = f => { try { fs.chmodSync(path.join(DATA, f), 0o600); } catch { /* 
 const secretFile = path.join(DATA, 'secret');
 if (!fs.existsSync(secretFile)) fs.writeFileSync(secretFile, crypto.randomBytes(32).toString('hex'), { mode: 0o600 });
 const SECRET = fs.readFileSync(secretFile, 'utf8').trim();
+// An early commit of this repository included data/, publishing this key. Anyone holding it can
+// forge a session for any uid, so an instance that inherited it must not start.
+if (SECRET.startsWith('1ba7c4c5133')) {
+  console.error(`FATAL: ${secretFile} is the key published in this repository's history. Delete it and restart.`);
+  process.exit(1);
+}
 
 const dbFile = path.join(DATA, 'db.json');
 // Every account, passkey and invite. Only a missing file starts empty: an unreadable one (a write
@@ -147,6 +158,8 @@ db.subs = db.subs || [];
 db.invites = db.invites || [];
 db.deviceLinks = db.deviceLinks || [];   // unused one-time device links, hashed (device-link.js)
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
+const isSetupCode = code => !!SETUP_CODE && db.users.length === 0 && code.length === SETUP_CODE.length &&
+  crypto.timingSafeEqual(Buffer.from(code), Buffer.from(SETUP_CODE));
 // 0600: db.json holds passkey credential material. It used to be covered by a blanket 0700 on
 // the whole directory; now that the directory stays traversable, the file carries its own mode.
 // Once the new version is on disk, a second copy of it goes to db.json.bak, the same durable
@@ -1910,7 +1923,8 @@ const routes = {
   // what "unhealthy" is for. The 200 keeps the shape it had, plus the flag it is now asserting.
   'GET /api/health': async (req, res) => {
     if (!dataWritable()) return json(res, 503, { ok: false, writable: false });
-    json(res, 200, { ok: true, users: db.users.length, writable: true });
+    // Unauthenticated, so it says nothing else about the instance: it used to include the user count.
+    json(res, 200, { ok: true, writable: true });
   },
 
   // Public config the login screen needs before anyone is signed in. `coach` is absent unless
@@ -1965,7 +1979,7 @@ const routes = {
     const name = text(body.name).trim().slice(0, 40);
     if (!name) return json(res, 400, { error: 'name required' });
     const code = text(body.code).trim().toUpperCase();
-    if (INVITE_ONLY && !db.invites.some(i => i.code === code && !i.usedBy && !i.revoked)) {
+    if (INVITE_ONLY && !isSetupCode(code) && !db.invites.some(i => i.code === code && !i.usedBy && !i.revoked)) {
       // The rejected code itself is never recorded — a near-miss guess in the log is a liability.
       audit(req, 'auth.register.denied', { ok: false, name, msg: 'invite-rejected' });
       return json(res, 403, { error: 'a valid invite code is required', code: 'invite' });
@@ -2014,7 +2028,8 @@ const routes = {
     }
     // Re-check the invite at the last moment (it may have been used/revoked since options), then burn it.
     let invite = null;
-    if (INVITE_ONLY) {
+    const setup = isSetupCode(c.code);
+    if (INVITE_ONLY && !setup) {
       invite = db.invites.find(i => i.code === c.code && !i.usedBy && !i.revoked);
       if (!invite) {
         audit(req, 'auth.register.fail', { ok: false, name: c.name, msg: 'invite-invalid' });
@@ -2022,6 +2037,7 @@ const routes = {
       }
     }
     const user = { id: c.uid, name: c.name, created: new Date().toISOString() };
+    if (setup) user.admin = true;
     if (invite) { user.invitedBy = invite.code; invite.usedBy = user.id; invite.usedAt = user.created; }
     claimFirstAdmin(req, user);
     db.users.push(user);
