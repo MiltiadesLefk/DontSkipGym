@@ -65,6 +65,8 @@ services:
     build:
       context: .
       dockerfile: web/Dockerfile
+      args:
+        - VITE_APP_NAME=${APP_NAME:-}   # rebranding, see .env.example
     restart: unless-stopped
     depends_on:
       media:
