@@ -240,7 +240,7 @@ export function parseHevyWorkouts(workouts, templates, { unit = 'kg' } = {}) {
         const isCardio = (km > 0 || secs > 0) && !reps
         const mins = secs > 0 ? Math.round(secs / 60 * 10) / 10 : 0
         const set = isCardio
-          ? { min: mins, speed: mins > 0 ? Math.round(km / (mins / 60) * 10) / 10 : 0, done: true, ...(warmup ? { phase: 'warmup' } : {}) }
+          ? { min: mins, km: Math.round(km * 100) / 100, speed: mins > 0 ? Math.round(km / (mins / 60) * 10) / 10 : 0, done: true, ...(warmup ? { phase: 'warmup' } : {}) }
           : { w: wgt, r: reps || 0, done: true, ...(warmup ? { phase: 'warmup' } : {}) }
 
         if (!isCardio && s.rpe != null && isFinite(Number(s.rpe)) && Number(s.rpe) > 0) {

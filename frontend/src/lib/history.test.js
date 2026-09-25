@@ -58,14 +58,17 @@ describe('fmtSec', () => {
 describe('setLabel', () => {
   it('describes each mode in its own terms', () => {
     expect(setLabel(LIFT, { w: 60, r: 10 })).toBe('60×10')
-    expect(setLabel(CARDIO, { min: 20, speed: 9 })).toBe('20 min @ 9 km/h')
+    // time and distance, with the average speed they imply; a set from before distance existed
+    // reads its distance back from the speed it stored
+    expect(setLabel(CARDIO, { min: 20, km: 3.5, speed: 10.5 })).toBe('20 min · 3.5 km (10.5 km/h)')
+    expect(setLabel(CARDIO, { min: 20, speed: 9 })).toBe('20 min · 3 km (9 km/h)')
     expect(setLabel(LIFT, { sec: 45, w: 0 }, { mode: 'time' })).toBe('0:45')
     expect(setLabel(LIFT, { sec: 90, w: 20 }, { mode: 'time' })).toBe('1:30 · 20')
   })
 
   it('reads a legacy set with no config exactly as before', () => {
     expect(setLabel(LIFT, { w: 0, r: 0 })).toBe('0×0')
-    expect(setLabel(CARDIO, {})).toBe('0 min @ 0 km/h')
+    expect(setLabel(CARDIO, {})).toBe('0 min · 0 km')
   })
 
   it('appends RIR when present, including a valid 0', () => {
@@ -248,7 +251,7 @@ describe('logging effort across a session', () => {
   it('never attaches effort to a mode that has no place for it', () => {
     // cardio and timed sets have no third stepper, and their labels ignore the field even
     // if an import or an old file put one there
-    expect(setLabel(CARDIO, { min: 20, speed: 9, rpe: 8 })).toBe('20 min @ 9 km/h')
+    expect(setLabel(CARDIO, { min: 20, speed: 9, rpe: 8 })).toBe('20 min · 3 km (9 km/h)')
     expect(setLabel(LIFT, { sec: 45, rir: 2 }, { id: LIFT, mode: 'time' })).toBe('0:45')
   })
 })
@@ -256,7 +259,7 @@ describe('logging effort across a session', () => {
 describe('defaultConfig', () => {
   it('gives each mode a sensible starting point', () => {
     expect(defaultConfig(LIFT)).toEqual({ sets: 3, reps: 10, weight: 0, mode: 'reps' })
-    expect(defaultConfig(CARDIO)).toEqual({ sets: 1, min: 20, speed: 8 })
+    expect(defaultConfig(CARDIO)).toEqual({ sets: 1, min: 20, km: 3 })
     expect(defaultConfig(LIFT, 'time')).toEqual({ sets: 3, sec: 45, weight: 0, mode: 'time' })
   })
   it('seeds the bodyweight flag from the catalogue, and only when it is true', () => {
@@ -331,7 +334,8 @@ describe('exLine', () => {
     expect(exLine({ id: LIFT, sets: 3, reps: 10, weight: 60 }, 'kg')).toBe('3 × 10 · 60 kg')
     expect(exLine({ id: LIFT, sets: 3, sec: 45, mode: 'time' }, 'kg')).toBe('3 × 0:45')
     expect(exLine({ id: LIFT, sets: 2, sec: 90, weight: 20, mode: 'time' }, 'kg')).toBe('2 × 1:30 · 20 kg')
-    expect(exLine({ id: CARDIO, sets: 1, min: 20, speed: 8 }, 'kg')).toBe('1 × 20 min @ 8 km/h')
+    expect(exLine({ id: CARDIO, sets: 1, min: 20, km: 3 }, 'kg')).toBe('1 × 20 min · 3 km')
+    expect(exLine({ id: CARDIO, sets: 1, min: 30, speed: 8 }, 'kg')).toBe('1 × 30 min · 4 km')   // an older speed target
   })
 })
 
@@ -436,8 +440,8 @@ describe('freestyleConfig', () => {
     const cardioCfg = freestyleConfig(cardio, { id: CARDIO, sets: 1, min: 20, speed: 8 })
     expect(cardioCfg).toEqual({ id: CARDIO, sets: 2, min: 30, speed: 7 })
     expect(buildSets(cardio, cardioCfg)).toEqual([
-      { min: 28, speed: 7, done: false },
-      { min: 30, speed: 7.5, done: false }
+      { min: 28, km: 3.27, speed: 7, done: false },
+      { min: 30, km: 3.75, speed: 7.5, done: false }
     ])
   })
 
@@ -460,7 +464,7 @@ describe('buildSets', () => {
 
   it('builds cardio sets unchanged', () => {
     expect(buildSets(emptyS, { id: CARDIO, sets: 1, min: 25, speed: 9 }))
-      .toEqual([{ min: 25, speed: 9, done: false }])
+      .toEqual([{ min: 25, km: 3.75, speed: 9, done: false }])
   })
 
   it('carries last time\'s numbers forward within the same mode', () => {
@@ -565,7 +569,7 @@ describe('buildSets', () => {
       workouts: [{ d: '2026-01-03', entries: [{ id: CARDIO, sets: [{ min: 45, speed: 10, done: true }] }] }]
     }
     expect(buildSets(cardioS, { id: CARDIO, sets: 2, min: 20, speed: 8 }, { useTarget: true }))
-      .toEqual([{ min: 20, speed: 8, done: false }, { min: 20, speed: 8, done: false }])
+      .toEqual([{ min: 20, km: 2.67, speed: 8, done: false }, { min: 20, km: 2.67, speed: 8, done: false }])
   })
 
 })
@@ -1172,7 +1176,7 @@ describe('per-side volume and legacy timed sets (QA round 2026-09-12)', () => {
   })
   it('reads a timed or cardio set saved without a target from the set itself', () => {
     expect(setLabel('0001', { sec: 45, done: true })).toBe('0:45')
-    expect(setLabel('0001', { min: 20, speed: 8, done: true })).toBe('20 min @ 8 km/h')
+    expect(setLabel('0001', { min: 30, speed: 8, done: true })).toBe('30 min · 4 km (8 km/h)')
     expect(setLabel('0025', { w: 60, r: 10, done: true })).toBe('60×10')
   })
 })

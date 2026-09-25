@@ -440,7 +440,7 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
     // `u` carries the row's own unit into the conversion pass below and is dropped there —
     // it never reaches the stored set.
     const set = isCardio
-      ? { min: mins || 0, speed: mins > 0 ? Math.round(km / (mins / 60) * 10) / 10 : 0, done: true, ...(warmup ? { phase: 'warmup' } : {}) }
+      ? { min: mins || 0, km: Math.round(km * 100) / 100, speed: mins > 0 ? Math.round(km / (mins / 60) * 10) / 10 : 0, done: true, ...(warmup ? { phase: 'warmup' } : {}) }
       : { w, r: reps || 0, done: true, u: rowUnit, ...(warmup ? { phase: 'warmup' } : {}) }
     // Effort rides along only where the app can show it again: a weighted rep set. A treadmill
     // row with an RPE would have nowhere to put it. A set is kept on one scale, so a file
