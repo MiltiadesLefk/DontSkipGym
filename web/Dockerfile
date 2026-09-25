@@ -22,6 +22,15 @@ COPY api/coach/core/ /app/api/coach/core/
 COPY frontend/ ./
 RUN npm run build
 
+# AGPL §13: pack the exact source this image is built from, served as /source.tar.gz and linked
+# from Settings. .dockerignore already keeps data, media, .env and .git out of the context; the
+# excludes below are the second line of defence for anything that is not in there.
+FROM alpine AS source
+COPY . /src
+RUN tar -czf /source.tar.gz -C /src \
+      --exclude=./.git --exclude=./media --exclude=./data --exclude=./coach-auth \
+      --exclude='./.env' --exclude='./.env.*' --exclude='node_modules' --exclude='dist' .
+
 FROM nginx:alpine
 # Same reason as in api/Dockerfile: alpine fixes land faster than the nginx image is rebuilt.
 RUN apk upgrade --no-cache
@@ -42,6 +51,7 @@ LABEL maintainer="Duarte Santos https://gitlab.com/DuarteSantos8" \
 
 COPY web/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
+COPY --from=source /source.tar.gz /usr/share/nginx/html/source.tar.gz
 # exercise media (img/gif) is mounted at runtime from the media volume
 
 # Set Default ENVs for nginx
