@@ -88,6 +88,24 @@ const flavor = {
   }
 }
 
+// Rebranding (src/lib/brand.js): the page title, the home-screen name and the web manifest follow
+// VITE_APP_NAME. Unset, the build is byte-for-byte what it was.
+const appName = process.env.VITE_APP_NAME || 'openGym'
+const brand = {
+  name: 'opengym-app-name',
+  transformIndexHtml(html) {
+    return appName === 'openGym' ? html : html.replaceAll('openGym', appName)
+  },
+  closeBundle() {
+    if (appName === 'openGym') return
+    const manifest = new URL('./dist/manifest.json', import.meta.url)
+    if (!existsSync(manifest)) return
+    const m = JSON.parse(readFileSync(manifest, 'utf8'))
+    for (const k of ['name', 'short_name']) if (typeof m[k] === 'string') m[k] = m[k].replaceAll('openGym', appName)
+    writeFileSync(manifest, JSON.stringify(m, null, 2) + '\n')
+  }
+}
+
 // The version people are asked for in #install-help and on every bug report. Read from
 // package.json so it cannot drift from the release it was built in, and inlined at build
 // time so no runtime fetch is involved.
@@ -102,7 +120,7 @@ const appVersion = process.env.APP_BUILD ? `${pkgVersion}+${process.env.APP_BUIL
 
 export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(appVersion) },
-  plugins: [react(), umami, flavor, swStamp, catalogueMedia],
+  plugins: [react(), umami, flavor, swStamp, catalogueMedia, brand],
   base: './',
   server: {
     // The Coach's core (payload, validator, prompts, HTTP adapters) lives in ../api/coach/core

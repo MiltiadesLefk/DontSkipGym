@@ -3,6 +3,8 @@
 // (import.meta.glob lazy
 // loads, the React subscription hook) live in i18n.js and re-export from here.
 
+import { APP_NAME, REBRANDED } from './brand.js'
+
 export const LANGS = {
   en: 'English', de: 'Deutsch', 'de-CH': 'Deutsch (Schweiz)', es: 'Español', fr: 'Français',
   it: 'Italiano', pt: 'Português (Portugal)', 'pt-BR': 'Português (Brasil)', pl: 'Polski',
@@ -77,6 +79,8 @@ export const getVersion = () => version
 // Translate a source string; {0},{1}… are replaced with args (also on the English fallback).
 export function t(s, ...args) {
   let v = dict[s] || s
+  // Before the args go in, so a user's own text (a routine called "openGym day") is left alone
+  if (REBRANDED) v = v.replaceAll('openGym', APP_NAME)
   // A plural key (an object of forms, read by tn()) reached through plain t() — a call site
   // that was not moved to tn(). Pick a form rather than crash on replaceAll.
   if (v && typeof v === 'object') {

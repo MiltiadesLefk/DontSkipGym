@@ -44,6 +44,7 @@ import { passwordOn, PasswordRow, openPasswordSignIn, openPasswordRegister } fro
 import { usePasskeys, PasskeysRow, DeviceLinkRow, openDeviceLinkRedeem } from '../components/Passkeys.jsx'
 import { Section, Row, SelectRow, Switch, Segmented, Button, TextField, SearchField } from '../components/ui.jsx'
 import { PAGES, ROOT_GROUPS, pageVisible, searchSettings, pageTrail } from './settings-pages.js'
+import { APP_NAME, REBRANDED } from '../lib/brand.js'
 
 /* Settings (v1.3.11). The root is one screen: an account card, eleven rows that each open a page
    (/settings/<page>), and a search over every row. Rare things live one level further down
@@ -830,7 +831,9 @@ export default function Settings({ page = null, find = null, via = null }) {
           build there is no address bar and no about box, so without this there is no way to tell
           which build you are running, or whether an update actually installed. */}
       <div className="dim small sp-version">
-        openGym v{__APP_VERSION__} · {t('free & open source (AGPL v3)')}<br />
+        {APP_NAME} v{__APP_VERSION__} · {t('free & open source (AGPL v3)')}<br />
+        {/* A rebranded build still credits the program it is (AGPL §5) */}
+        {REBRANDED && <>based on <a href="https://github.com/DuarteSantos8/openGym" target="_blank" rel="noopener">openGym</a> by Duarte Santos<br /></>}
         <a href={MOBILE || DEMO ? 'https://github.com/DuarteSantos8/openGym' : SOURCE_URL} target="_blank" rel="noopener">{t('Source code')}</a><br />
         {/* Attribution the media licence asks for word for word (agreement §8c), so it is not translated */}
         Exercise media © Aliaksandr Makatserchyk, <a href="https://gymvisual.com/" target="_blank" rel="noopener">Gym visual</a>, gymvisual.com.
@@ -962,7 +965,7 @@ function SettingsRoot({ ctx, preview, open, user, sync, home, go }) {
             value={preview[id]?.() || null} accessory="chevron" onClick={() => open(id)} className="sp-root-row" />)}
         </Section>
       ))}
-      <div className="dim small sp-version">openGym v{__APP_VERSION__}</div>
+      <div className="dim small sp-version">{APP_NAME} v{__APP_VERSION__}</div>
     </>}
   </div>
 }
