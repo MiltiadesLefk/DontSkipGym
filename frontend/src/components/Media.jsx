@@ -36,6 +36,10 @@ export default function Media({ ex, id, compact, minimizable }) {
       {failed === 'all'
         ? <div className="exmedia-x"><Icon name="dumbbell" /></div>
         : <img decoding="async" draggable={false} src={showGif ? gifSrc(ex) : imgSrc(ex)} alt={exerciseNameFor(ex)} onError={onError} />}
+      {/* The media's terms require the rights holder's notice on every use, not only in Settings */}
+      {failed !== 'all' && <span className="gifcredit">
+        <a href="https://gymvisual.com/" target="_blank" rel="noopener" onClick={e => e.stopPropagation()}>© Gym visual</a>
+      </span>}
       {minimizable && (
         <button className="giftoggle" onClick={toggleSize}>
           <Icon name={mini ? 'expand' : 'minimize'} />{mini ? t('Expand') : t('Minimize')}

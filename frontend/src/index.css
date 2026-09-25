@@ -699,6 +699,8 @@ body.chips-dragging *{cursor:inherit}
 }
 .exmedia .gifhint{right:9px}
 .exmedia .giftoggle{left:9px}
+.exmedia .gifcredit{position:absolute;top:6px;right:9px;font-size:10px;color:rgba(0,0,0,.45)}
+.exmedia .gifcredit a{color:inherit;text-decoration:none}
 .exmedia .gifhint .icn,.exmedia .giftoggle .icn{font-size:13px}
 /* superset: both exercises are on screen together, so the animations have to give way —
    at 180px you had to scroll a full screen between two exercises done back-to-back */
