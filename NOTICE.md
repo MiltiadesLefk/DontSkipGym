@@ -3,6 +3,12 @@
 openGym — Copyright (C) 2026 Duarte Santos.
 openGym's own code is licensed under the **GNU AGPL v3.0** (see [LICENSE](LICENSE)).
 
+## DontSkipGym (the `mine` branch of this fork)
+
+DontSkipGym is a modified version of openGym, modified by Miltiades Lefkopoulos from 2026-09-25
+onwards, and remains under the AGPL v3.0. Every change is a commit in this repository on top of
+upstream openGym: see the `mine` branch history for the full list.
+
 ## App store exception
 
 As an additional permission under section 7 of the AGPL v3.0, the copyright holder permits

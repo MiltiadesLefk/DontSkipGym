@@ -15,6 +15,8 @@ node_modules/
 .DS_Store
 node_modules
 .claude/
+# Personal notes for this fork: CLAUDE.local.md and any other *.local.md (CLAUDE.md is upstream's)
+*.local.md
 .agents/
 
 # CI reports (test:* jobs write these next to the suites)
