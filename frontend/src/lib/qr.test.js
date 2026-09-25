@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeFmt, canRenderFmt } from './qr.js'
+import { normalizeFmt, canRenderFmt, barcodeFormatOf } from './qr.js'
 
 // The QR helpers decide which scanned/typed codes the check-in feature will store: it can read
 // many symbologies but only redraw QR, so canRenderFmt is the gate, and normalizeFmt is what
@@ -35,10 +35,16 @@ describe('canRenderFmt', () => {
     expect(canRenderFmt('qr')).toBe(true)
   })
 
-  it('rejects 1D and other 2D symbologies we cannot faithfully redraw', () => {
-    // These are readable by the scanner but lean-qr can't reproduce them, so a card in one of
-    // these formats must never be stored — it would display as the wrong bars at the turnstile.
-    for (const fmt of ['EAN_13', 'EAN_8', 'CODE_128', 'CODE_39', 'ITF', 'UPC_A', 'PDF_417', 'AZTEC', 'DATA_MATRIX']) {
+  it('accepts the common 1D barcodes, whatever spelling the scanner used', () => {
+    for (const fmt of ['EAN_13', 'ean_8', 'CODE_128', 'code128', 'CODE_39', 'ITF', 'UPC_A', 'upc_e', 'CODABAR']) {
+      expect(canRenderFmt(fmt)).toBe(true)
+    }
+  })
+
+  it('rejects the symbologies we cannot faithfully redraw', () => {
+    // Readable by the scanners but not reproducible here, so a card in one of these formats must
+    // never be stored — it would display as the wrong bars at the turnstile.
+    for (const fmt of ['PDF_417', 'AZTEC', 'DATA_MATRIX', 'CODE_93', 'MAXICODE']) {
       expect(canRenderFmt(fmt)).toBe(false)
     }
   })
@@ -47,5 +53,20 @@ describe('canRenderFmt', () => {
     expect(canRenderFmt('')).toBe(false)
     expect(canRenderFmt(null)).toBe(false)
     expect(canRenderFmt('something-else')).toBe(false)
+  })
+})
+
+describe('barcodeFormatOf', () => {
+  it('draws each code in its own symbology, never a substitute', () => {
+    expect(barcodeFormatOf('CODE_128')).toBe('CODE128')
+    expect(barcodeFormatOf('ean_13')).toBe('EAN13')
+    expect(barcodeFormatOf('UPC_A')).toBe('UPC')
+    expect(barcodeFormatOf('codabar')).toBe('codabar')
+    expect(barcodeFormatOf('QR_CODE')).toBe(null)
+    expect(barcodeFormatOf('PDF_417')).toBe(null)
+  })
+  it('treats a 14-digit ITF as ITF-14', () => {
+    expect(barcodeFormatOf('ITF', '12345678901231')).toBe('ITF14')
+    expect(barcodeFormatOf('ITF', '123456')).toBe('ITF')
   })
 })

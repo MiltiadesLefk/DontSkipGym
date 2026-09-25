@@ -7,10 +7,12 @@
 // lean-qr (MIT, see NOTICE.md) is loaded with a dynamic import so its ~4kB only loads when a
 // card is actually shown, on every platform — the PWA renders the same code as the app.
 //
-// Scope: lean-qr generates QR codes only. A gym card is virtually always a QR code, and the
-// capture flow (lib/scan.js) refuses any symbology we cannot faithfully reproduce, so a stored
-// card is guaranteed renderable here — canRenderFmt() is the single source of that truth, shared
-// by both sides.
+// Scope: QR codes through lean-qr, and the common 1D barcodes (Code 128/39, EAN-13/8, UPC-A/E,
+// ITF, Codabar) through JsBarcode (MIT, see NOTICE.md), also dynamic-imported. Plenty of gyms
+// print a plain barcode on the membership card, not a QR. The capture flow (lib/scan.js) refuses
+// any symbology we cannot faithfully reproduce (PDF417, Data Matrix, Aztec, Code 93…), so a
+// stored card is guaranteed renderable here — canRenderFmt() is the single source of that truth,
+// shared by both sides.
 
 let _leanqr = null
 
@@ -20,12 +22,47 @@ async function loadLeanQr() {
   return _leanqr
 }
 
-// The symbologies we can both read (mlkit) AND redraw (lean-qr). Stored `fmt` is a lower-cased
-// BarcodeFormat. Only QR qualifies: reproducing an EAN/Code128/etc. would need a 1D renderer we
-// deliberately did not add, and a code we can't redraw faithfully is worse than not storing it —
-// it would look scannable but carry the wrong bars.
+// Stored `fmt` (normalized) → the JsBarcode format that draws the same symbology. A code is only
+// redrawn in its own symbology: a turnstile set up for EAN-13 need not read Code 128, so drawing
+// the value as "some other barcode" would look scannable and fail at the gate.
+const BARCODE_FORMATS = {
+  code128: 'CODE128', code39: 'CODE39', ean13: 'EAN13', ean8: 'EAN8',
+  upca: 'UPC', upce: 'UPCE', itf: 'ITF', itf14: 'ITF14', codabar: 'codabar'
+}
+// ITF of exactly 14 digits is the ITF-14 variant, which JsBarcode draws with its own rules.
+export function barcodeFormatOf(fmt, value = '') {
+  const f = normalizeFmt(fmt)
+  if (f === 'itf' && /^\d{14}$/.test(String(value))) return 'ITF14'
+  return BARCODE_FORMATS[f] || null
+}
+export const isQrFmt = fmt => normalizeFmt(fmt) === 'qrcode'
+
+// The symbologies we can both read (mlkit, BarcodeDetector, jsQR/ZXing) AND redraw faithfully.
+// A code we can't redraw faithfully is worse than not storing it — it would look scannable but
+// carry the wrong bars.
 export function canRenderFmt(fmt) {
-  return normalizeFmt(fmt) === 'qrcode'
+  return isQrFmt(fmt) || !!BARCODE_FORMATS[normalizeFmt(fmt)]
+}
+
+let _jsbarcode = null
+async function loadJsBarcode() {
+  if (!_jsbarcode) _jsbarcode = (await import('jsbarcode')).default
+  return _jsbarcode
+}
+
+// Draw a 1D barcode onto `canvas`, black on white with a quiet zone, no human-readable text (the
+// card shows the value underneath already). Returns true on success; a value the symbology
+// cannot encode (a bad EAN check digit, letters in an EAN) returns false rather than throwing.
+export async function renderBarcodeToCanvas(canvas, value, fmt) {
+  const format = barcodeFormatOf(fmt, value)
+  if (!canvas || !value || !format) return false
+  const JsBarcode = await loadJsBarcode()
+  let valid = true
+  JsBarcode(canvas, String(value), {
+    format, displayValue: false, margin: 14, width: 2, height: 90,
+    background: '#ffffff', lineColor: '#000000', valid: v => { valid = v }
+  })
+  return valid
 }
 
 // mlkit reports BarcodeFormat as e.g. 'QR_CODE' | 'QrCode'; older callers may pass 'qr'. Fold
