@@ -7,7 +7,7 @@ import { useUI } from '../store/useUI.js'
 import { ACCENTS, todayISO, localTZ, weekStartOf, MONDAY, SUNDAY } from '../lib/format.js'
 import { effortOf } from '../lib/history.js'
 import { unlock, playOnSilentSupported } from '../lib/sound.js'
-import { api, webauthnOK, passkeyLogin, passkeyRegister, IS_ANDROID } from '../lib/api.js'
+import { api, webauthnOK, passkeyLogin, passkeyRegister, setPassword, IS_ANDROID } from '../lib/api.js'
 import { pushSupported, enablePush, disablePush, sendTestPush, syncPushSubscription } from '../lib/push.js'
 import { wakeLockSupported } from '../lib/wakelock.js'
 import { t, LANGS, INSTR_LANGS } from '../lib/i18n.js'
@@ -208,7 +208,11 @@ export default function Settings() {
         <Row icon="rocket" iconTint="var(--indigo)" title={t('Self-host openGym')} subtitle={t('Passkey sign-in, sync across your devices, your own data.')} accessory="chevron"
           onClick={() => window.open(REPO, '_blank', 'noopener')} />
       </> : user ? <>
-        <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Signed in with passkey — data syncs to this profile.')} />
+        <Row icon="personCircle" iconTint="var(--grey)" title={user.name}
+          subtitle={user.username ? t('Signed in as {0} — data syncs to this profile.', user.username) : t('Signed in with passkey — data syncs to this profile.')} />
+        <Row icon="lock" iconTint="var(--blue)" title={user.hasPassword ? t('Change password') : t('Set a password')} accessory="chevron"
+          subtitle={user.hasPassword ? null : t('Sign in with a username and password too, not only a passkey')}
+          onClick={() => useUI.getState().openSheet(close => <PasswordSheet close={close} user={user} setUser={setUser} toast={toast} />)} />
         {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
         <Row icon="link" iconTint="var(--blue)" title={t('Pair the mobile app')} subtitle={t('Connect the openGym app on your phone to this account.')} accessory="chevron"
           onClick={() => useUI.getState().openSheet(close => <PairSheet close={close} />)} />
@@ -663,6 +667,40 @@ function EquipmentCard({ S, update }) {
 // Lets the mobile app's "connect to my server" mode (lib/remote.js) authenticate without a
 // WebAuthn ceremony of its own — the code is minted here, from an already signed-in session,
 // and redeemed by the app for a bearer token. See /api/pair/create in api/server.js.
+// Set a first password (choosing the username that goes with it) or change the current one.
+// Changing it signs out every other device; this one gets a fresh session back.
+function PasswordSheet({ close, user, setUser, toast }) {
+  const [username, setUsername] = useState('')
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [busy, setBusy] = useState(false)
+  const go = async e => {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      const u = await setPassword({ username: username.trim(), current, password: next })
+      setUser(u); close()
+      toast(user.hasPassword ? t('Password changed — other devices were signed out') : t('Password set — sign in as {0}', u.username))
+    } catch (err) { toast(err.message) }
+    finally { setBusy(false) }
+  }
+  return <>
+    <h3>{user.hasPassword ? t('Change password') : t('Set a password')}</h3>
+    <form onSubmit={go}>
+      {user.username
+        ? <div className="muted small" style={{ marginBottom: 12 }}>{t('Username: {0}', user.username)}</div>
+        : <><input className="input" placeholder={t('Username')} maxLength={32} autoComplete="username" autoCapitalize="none" spellCheck={false}
+            value={username} onChange={e => setUsername(e.target.value.toLowerCase())} /><div style={{ height: 10 }} /></>}
+      {user.hasPassword && <><input className="input" type="password" placeholder={t('Current password')} autoComplete="current-password"
+        value={current} onChange={e => setCurrent(e.target.value)} /><div style={{ height: 10 }} /></>}
+      <input className="input" type="password" placeholder={t('New password (10+ characters)')} maxLength={200} autoComplete="new-password"
+        value={next} onChange={e => setNext(e.target.value)} />
+      <div style={{ height: 12 }} />
+      <Button variant="primary" type="submit" disabled={busy}>{t('Save')}</Button>
+    </form>
+  </>
+}
+
 function PairSheet({ close }) {
   const [code, setCode] = useState(null)
   const [err, setErr] = useState(null)

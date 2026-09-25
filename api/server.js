@@ -586,6 +586,73 @@ function readBody(req) {
 const text = v => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
 const b64uToBuf = s => Buffer.from(s, 'base64url');
 
+/* ---------- passwords (an alternative to passkeys) ---------- */
+// scrypt from node:crypto, so no new dependency. Stored per user as { alg, N, r, p, salt, hash }
+// with the parameters alongside the hash, so they can be raised later without invalidating the
+// hashes already stored.
+const SCRYPT = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
+const SCRYPT_LEN = 32;
+const scryptAsync = (pw, salt, len, opts) => new Promise((resolve, reject) =>
+  crypto.scrypt(pw, salt, len, opts, (err, key) => (err ? reject(err) : resolve(key))));
+async function hashPassword(password) {
+  const salt = crypto.randomBytes(16);
+  const hash = await scryptAsync(password, salt, SCRYPT_LEN, SCRYPT);
+  return { alg: 'scrypt', N: SCRYPT.N, r: SCRYPT.r, p: SCRYPT.p, salt: salt.toString('base64'), hash: hash.toString('base64') };
+}
+async function verifyPassword(password, pw) {
+  if (!pw || pw.alg !== 'scrypt') return false;
+  const want = Buffer.from(pw.hash, 'base64');
+  let got;
+  try {
+    got = await scryptAsync(password, Buffer.from(pw.salt, 'base64'), want.length,
+      { N: pw.N, r: pw.r, p: pw.p, maxmem: SCRYPT.maxmem });
+  } catch { return false; }
+  return got.length === want.length && crypto.timingSafeEqual(got, want);
+}
+// Burned on unknown usernames, so a miss costs the same time as a wrong password
+const DUMMY_PW = { alg: 'scrypt', ...SCRYPT, salt: crypto.randomBytes(16).toString('base64'), hash: crypto.randomBytes(SCRYPT_LEN).toString('base64') };
+
+// Rejects the passwords that actually get broken, without theatre about symbols
+function passwordProblem(pw) {
+  if (typeof pw !== 'string' || !pw) return 'password required';
+  if (pw.length < 10) return 'password must be at least 10 characters';
+  if (pw.length > 200) return 'password must be under 200 characters';
+  if (['password12', '1234567890', 'qwertyuiop', 'letmein123', 'iloveyou12'].includes(pw.toLowerCase()))
+    return 'that password is on every breach list';
+  return null;
+}
+const normUsername = v => text(v).trim().toLowerCase();
+const usernameProblem = u => (/^[a-z0-9._-]{3,32}$/.test(u) ? null : 'username: 3–32 characters, letters, numbers, . _ -');
+const userByUsername = u => db.users.find(x => x.username && x.username === u) || null;
+
+// Brute-force brake, keyed per username: behind the bundled web container every request can
+// arrive from the same address, so a per-IP limit would lock out everyone at once. Fixed
+// capacity, so the limiter can never be the memory leak itself; failures back off harder the
+// longer they continue.
+const LOGIN_MAX = 8, LOGIN_WINDOW = 15 * 60000, LOGIN_CAP = 4096;
+const loginFails = new Map();              // username -> { count, reset }
+function loginBlocked(key, now = Date.now()) {
+  const e = loginFails.get(key);
+  if (!e || e.reset < now || e.count < LOGIN_MAX) return 0;
+  return Math.ceil((e.reset - now) / 1000);
+}
+function loginFailed(key, now = Date.now()) {
+  if (loginFails.size >= LOGIN_CAP) for (const [k, v] of loginFails) if (v.reset < now) loginFails.delete(k);
+  if (loginFails.size >= LOGIN_CAP) return;
+  const e = loginFails.get(key);
+  if (!e || e.reset < now) { loginFails.set(key, { count: 1, reset: now + LOGIN_WINDOW }); return; }
+  e.count++;
+  if (e.count > LOGIN_MAX) e.reset = now + Math.min(LOGIN_WINDOW * 4, LOGIN_WINDOW * (e.count - LOGIN_MAX + 1));
+}
+const tooMany = (res, wait) =>
+  json(res, 429, { error: `too many attempts — try again in ${Math.ceil(wait / 60)} min` }, { 'Retry-After': String(wait) });
+// What the client learns about the signed-in account
+const publicUser = user => ({
+  id: user.id, name: user.name, admin: isAdmin(user),
+  username: user.username || null, hasPassword: !!user.pw,
+  hasPasskey: db.creds.some(c => c.userId === user.id)
+});
+
 /* ---------- live presence (in-memory) ---------- */
 // Clients heartbeat /api/activity while a workout is on screen; the admin dashboard reads who's
 // live. Purely ephemeral — never persisted. Expires shortly after the last ping.
@@ -710,7 +777,7 @@ const routes = {
   'GET /api/me': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } });
+    json(res, 200, { user: publicUser(user) });
   },
 
   'POST /api/register/options': async (req, res) => {
@@ -787,7 +854,7 @@ const routes = {
     });
     saveDb();
     audit(req, 'auth.register.ok', { user, msg: invite ? invite.code : null });
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: publicUser(user) }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   'POST /api/login/options': async (req, res) => {
@@ -848,7 +915,92 @@ const routes = {
       return json(res, 403, { error: 'this account has been disabled' });
     }
     audit(req, 'auth.login.ok', { user });
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: publicUser(user) }, { 'Set-Cookie': sessionCookie(user) });
+  },
+
+  'POST /api/login/password': async (req, res) => {
+    const body = await readBody(req);
+    const username = normUsername(body.username);
+    const password = text(body.password).slice(0, 200);
+    if (!username || !password) return json(res, 400, { error: 'username and password required' });
+    const wait = loginBlocked(username);
+    if (wait) { audit(req, 'auth.login.fail', { ok: false, msg: 'password-rate-limited' }); return tooMany(res, wait); }
+    const user = userByUsername(username);
+    const ok = await verifyPassword(password, user?.pw || DUMMY_PW) && !!user?.pw;
+    if (!ok) {
+      loginFailed(username);
+      // The attempted username is not recorded unless it belongs to an account: a typo'd password
+      // in the username field would otherwise land in the log in plain text.
+      audit(req, 'auth.login.fail', { ok: false, user: user || undefined, msg: 'password-wrong' });
+      return json(res, 401, { error: 'wrong username or password' });
+    }
+    if (user.disabled) {
+      audit(req, 'auth.login.fail', { ok: false, user, msg: 'account-disabled' });
+      return json(res, 403, { error: 'this account has been disabled' });
+    }
+    loginFails.delete(username);
+    audit(req, 'auth.login.ok', { user, msg: 'password' });
+    json(res, 200, { user: publicUser(user) }, { 'Set-Cookie': sessionCookie(user) });
+  },
+
+  // Sign-up with a username and password instead of a passkey. Same invite rules as the passkey flow.
+  'POST /api/register/password': async (req, res) => {
+    const body = await readBody(req);
+    const name = text(body.name).trim().slice(0, 40);
+    const username = normUsername(body.username);
+    const code = text(body.code).trim().toUpperCase();
+    if (!name) return json(res, 400, { error: 'name required' });
+    const bad = usernameProblem(username) || passwordProblem(body.password);
+    if (bad) return json(res, 400, { error: bad });
+    const allowed = () => !INVITE_ONLY || isSetupCode(code) || db.invites.some(i => i.code === code && !i.usedBy && !i.revoked);
+    if (!allowed()) {
+      audit(req, 'auth.register.denied', { ok: false, name, msg: 'invite-rejected' });
+      return json(res, 403, { error: 'a valid invite code is required' });
+    }
+    if (userByUsername(username)) return json(res, 409, { error: 'that username is taken' });
+    const pw = await hashPassword(body.password);
+    // Re-checked after the await: another sign-up may have taken the name or the code meanwhile
+    if (userByUsername(username)) return json(res, 409, { error: 'that username is taken' });
+    if (!allowed()) return json(res, 403, { error: 'invite code is no longer valid — ask for a new one' });
+    const setup = isSetupCode(code);
+    const invite = INVITE_ONLY && !setup ? db.invites.find(i => i.code === code && !i.usedBy && !i.revoked) : null;
+    const user = { id: crypto.randomBytes(12).toString('base64url'), name, username, pw, created: new Date().toISOString() };
+    if (setup) user.admin = true;
+    if (invite) { user.invitedBy = invite.code; invite.usedBy = user.id; invite.usedAt = user.created; }
+    db.users.push(user);
+    saveDb();
+    audit(req, 'auth.register.ok', { user, msg: invite ? invite.code : 'password' });
+    json(res, 200, { user: publicUser(user) }, { 'Set-Cookie': sessionCookie(user) });
+  },
+
+  // Set a first password (choosing the username that goes with it) or change the current one.
+  // Changing it needs the current password and signs out every other device.
+  'POST /api/password': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const username = user.username || normUsername(body.username);
+    const bad = usernameProblem(username) || passwordProblem(body.password);
+    if (bad) return json(res, 400, { error: bad });
+    if (!user.username && userByUsername(username)) return json(res, 409, { error: 'that username is taken' });
+    if (user.pw) {
+      const wait = loginBlocked(user.username);
+      if (wait) return tooMany(res, wait);
+      if (!await verifyPassword(text(body.current), user.pw)) {
+        loginFailed(user.username);
+        audit(req, 'auth.password.fail', { ok: false, user, msg: 'current-wrong' });
+        return json(res, 403, { error: 'current password is wrong' });
+      }
+    }
+    const pw = await hashPassword(body.password);
+    if (!user.username && userByUsername(username)) return json(res, 409, { error: 'that username is taken' });
+    const changed = !!user.pw;
+    user.username = username;
+    user.pw = pw;
+    if (changed) user.sv = sessionVersion(user) + 1;
+    saveDb();
+    audit(req, changed ? 'auth.password.change' : 'auth.password.set', { user });
+    json(res, 200, { user: publicUser(user) }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   // Reads the session purely so the sign-out can be recorded; the cookie is cleared either way.
@@ -902,7 +1054,7 @@ const routes = {
       return json(res, 400, { error: 'invalid or expired code' });
     }
     audit(req, 'auth.pair.ok', { user });
-    json(res, 200, { token: makeSession(user), user: { id: user.id, name: user.name, admin: isAdmin(user) } });
+    json(res, 200, { token: makeSession(user), user: publicUser(user) });
   },
 
   // `rev` is the server's own count of writes to this profile (also stored inside the document as
@@ -1067,6 +1219,7 @@ const routes = {
       return {
         id: u.id, name: u.name, created: u.created || null,
         disabled: !!u.disabled, admin: isAdmin(u), invitedBy: u.invitedBy || null,
+        username: u.username || null, hasPassword: !!u.pw,
         workouts: workouts.length,
         lastWorkout: last ? last.d : null,
         lastSync: S._ts || null,
@@ -1085,7 +1238,8 @@ const routes = {
     if (!u) return json(res, 404, { error: 'no such user' });
     const S = readState(u.id) || {};
     json(res, 200, {
-      user: { id: u.id, name: u.name, created: u.created || null, disabled: !!u.disabled, admin: isAdmin(u), invitedBy: u.invitedBy || null },
+      user: { id: u.id, name: u.name, created: u.created || null, disabled: !!u.disabled, admin: isAdmin(u), invitedBy: u.invitedBy || null,
+        username: u.username || null, hasPassword: !!u.pw },
       unit: S.unit || 'kg',
       lastSync: S._ts || null,
       routines: records(S.routines).map(r => ({ id: r.id, name: r.name, emoji: r.emoji, count: records(r.ex).length })),
@@ -1105,6 +1259,27 @@ const routes = {
     saveDb();
     audit(req, u.disabled ? 'admin.user.disable' : 'admin.user.enable', { user: admin, target: u });
     json(res, 200, { ok: true, id: u.id, disabled: u.disabled });
+  },
+
+  // For someone who forgot their password: the admin sets a new one (and a username, if the
+  // account has none yet) and tells them in person. Every session that account has is ended.
+  'POST /api/admin/user/password': async (req, res) => {
+    const admin = requireAdmin(req, res); if (!admin) return;
+    const body = await readBody(req);
+    const u = db.users.find(x => x.id === body.id);
+    if (!u) return json(res, 404, { error: 'no such user' });
+    const username = u.username || normUsername(body.username);
+    const bad = usernameProblem(username) || passwordProblem(body.password);
+    if (bad) return json(res, 400, { error: bad });
+    const taken = userByUsername(username);
+    if (taken && taken !== u) return json(res, 409, { error: 'that username is taken' });
+    u.pw = await hashPassword(body.password);
+    u.username = username;
+    u.sv = sessionVersion(u) + 1;
+    loginFails.delete(username);
+    saveDb();
+    audit(req, 'admin.user.password', { user: admin, target: u });
+    json(res, 200, { ok: true, id: u.id, username });
   },
 
   // Disable locks an account out; this removes it. The one destructive action in the app, so the

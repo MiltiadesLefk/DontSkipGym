@@ -30,6 +30,31 @@ const rel = ts => {
 }
 const dur = ms => { const m = Math.max(0, Math.floor(ms / 60000)); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min' }
 
+// For someone who forgot their password: set a new one and tell them in person. It signs the
+// account out everywhere. An account without a username gets one here too.
+function ResetPassword({ u, toast }) {
+  const [open, setOpen] = useState(false)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  if (!open) return <button className="btn" style={{ margin: '8px 0 4px' }} onClick={() => setOpen(true)}>
+    {u.hasPassword ? 'Reset password' : 'Give them a password'}</button>
+  const save = e => {
+    e.preventDefault()
+    api('/api/admin/user/password', { method: 'POST', body: JSON.stringify({ id: u.id, username: username.trim(), password }) })
+      .then(r => { toast('Password set for ' + r.username); setOpen(false); setPassword('') })
+      .catch(err => toast(err.message))
+  }
+  return <form onSubmit={save} style={{ margin: '10px 0' }}>
+    {u.username ? <div className="adm-hint" style={{ marginBottom: 8 }}>Username: {u.username}</div>
+      : <><input className="input" placeholder="Username" autoCapitalize="none" spellCheck={false} value={username}
+          onChange={e => setUsername(e.target.value.toLowerCase())} /><div style={{ height: 8 }} /></>}
+    <input className="input" type="text" placeholder="New password (10+ characters)" autoComplete="off" value={password}
+      onChange={e => setPassword(e.target.value)} />
+    <div style={{ height: 8 }} />
+    <Button variant="primary" size="sm" type="submit">Save password</Button>
+  </form>
+}
+
 function UserDetail({ id, onChanged, close }) {
   const [d, setD] = useState(null)
   const toast = useUI(s => s.toast)
@@ -101,6 +126,7 @@ function UserDetail({ id, onChanged, close }) {
       <button className="btn" style={{ marginBottom: 4 }} onClick={exportUser}>Download their data</button>
       <div className="adm-hint">Deleting removes the account and every trace of its training history from this server.</div>
     </>}
+    <ResetPassword u={u} toast={toast} />
     <h4 className="sec">Workout history</h4>
     {workouts.length ? <div className="list" style={{ gap: 0 }}>
       {workouts.slice(0, 60).map(w => <div key={w.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>

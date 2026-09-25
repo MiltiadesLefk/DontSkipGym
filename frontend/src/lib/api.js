@@ -96,6 +96,15 @@ export async function passkeyRegister(name, code) {
   const res = await api('/api/register/verify', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred) }) })
   return res.user
 }
+export async function passwordLogin(username, password) {
+  return (await api('/api/login/password', { method: 'POST', body: JSON.stringify({ username, password }) })).user
+}
+export async function passwordRegister(name, username, password, code) {
+  return (await api('/api/register/password', { method: 'POST', body: JSON.stringify({ name, username, password, code: code || '' }) })).user
+}
+export async function setPassword({ username, current, password }) {
+  return (await api('/api/password', { method: 'POST', body: JSON.stringify({ username, current, password }) })).user
+}
 export async function passkeyLogin() {
   const { cid, options } = await api('/api/login/options', { method: 'POST', body: '{}' })
   const cred = await navigator.credentials.get({ publicKey: toRequestOptions(options) })
