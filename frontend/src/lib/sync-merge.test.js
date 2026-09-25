@@ -151,3 +151,11 @@ describe('sign-in adoption helpers', () => {
     expect(mergeStates(server, local).unit).toBe('kg')   // without prefer the newer copy decides
   })
 })
+
+describe('mergeStates: cheat meals', () => {
+  it('keeps the cheat meals both devices logged', () => {
+    const a = { _ts: 2, workouts: [], bodyweight: [], cheatMeals: [{ id: 'x', food: 'pizza', d: '2026-09-24', t: 1 }] }
+    const b = { _ts: 1, workouts: [], bodyweight: [], cheatMeals: [{ id: 'y', food: 'burger', d: '2026-09-25', t: 2 }] }
+    expect(mergeStates(a, b).cheatMeals.map(e => e.id).sort()).toEqual(['x', 'y'])
+  })
+})
