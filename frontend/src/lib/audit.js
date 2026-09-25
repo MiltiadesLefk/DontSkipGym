@@ -53,6 +53,10 @@ const LABELS = {
   'auth.proof.fail': 'Confirming a change failed',
   // The password throttle paused an address; `msg` says for what (password, signup).
   'auth.throttled': 'Too many failed attempts from one address',
+  'auth.versus.request': 'Asked to compare on Versus',
+  'auth.versus.accept': 'Accepted a Versus request',
+  'auth.versus.decline': 'Declined a Versus request',
+  'auth.versus.end': 'Ended a Versus pairing',
   'admin.user.disable': 'Disabled an account',
   'admin.user.enable': 'Re-enabled an account',
   'admin.user.delete': 'Deleted an account',

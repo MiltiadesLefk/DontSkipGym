@@ -11,13 +11,16 @@ import { useConnectionTrouble } from './SyncBanner.jsx'
 // render, so React saw a different component type each time and threw the button away and built a
 // fresh one — on a bar that is fixed on screen, and once a second for the whole of a rest. The
 // state it took with it is the DOM node itself: focus, the :active tint, any in-flight transition.
-function Tab({ active, icon, label, onClick, dot }) {
+function Tab({ active, icon, label, onClick, dot, dotLabel }) {
   return (
-    <button className={active ? 'on' : ''} onClick={onClick} aria-label={dot ? label + ', ' + t('Connection problem') : undefined}>
+    <button className={active ? 'on' : ''} onClick={onClick} aria-label={dot ? label + ', ' + (dotLabel || t('Connection problem')) : undefined}>
       <span className="tab-ic"><Icon name={icon} />{dot && <span className="tab-dot" aria-hidden="true" />}</span><span>{label}</span>
     </button>
   )
 }
+import { useEffect } from 'react'
+import { useVersus, refreshVersus } from '../lib/versus.js'
+import '../versus.css'
 
 export default function TabBar({ onStart }) {
   const nav = useNavigate()
@@ -28,6 +31,16 @@ export default function TabBar({ onStart }) {
   // With the connection banner switched off, a sync problem shows as a dot on Home, the tab
   // Settings lives under (#369, #330).
   const trouble = useConnectionTrouble()
+  const versusIn = useVersus(s => s.incoming)
+  // The dot on Versus: asked on load, whenever the app comes back into view, and every minute
+  useEffect(() => {
+    if (!user) return
+    refreshVersus()
+    const onVis = () => { if (document.visibilityState === 'visible') refreshVersus() }
+    document.addEventListener('visibilitychange', onVis)
+    const tm = setInterval(onVis, 60000)
+    return () => { document.removeEventListener('visibilitychange', onVis); clearInterval(tm) }
+  }, [user])
   if (!user && !isGuest) return null
   const cur = loc.pathname.split('/')[1] || 'home'
   const on = k => cur === k || (cur === 'history' && k === 'stats') || (cur === 'settings' && k === 'home') || (cur === 'muscles' && k === 'library') || (cur === 'structural-balance' && k === 'stats')
@@ -61,6 +74,7 @@ export default function TabBar({ onStart }) {
           : <span>{S.active ? (cur === 'workout' ? t('Workout') : S.active.editingWorkoutId ? t('Edit workout') : t('Resume')) : t('Start')}</span>}
       </button>
       <Tab active={on('stats')} icon="chart" label={t('Stats')} onClick={() => nav('/stats')} />
+      {user && <Tab active={on('versus')} icon="boxing" label={t('Versus')} dot={versusIn > 0} dotLabel={t('new request')} onClick={() => nav('/versus')} />}
       <Tab active={on('library')} icon="dumbbell" label={t('Exercises')} onClick={() => nav('/library')} />
     </nav>
   )

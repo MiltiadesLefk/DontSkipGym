@@ -1,0 +1,34 @@
+/* Versus screen and the request dot on its tab. Kept out of index.css so upstream's stylesheet
+   stays untouched; built from the same tokens. */
+
+/* tab icon dot: an incoming Versus request waiting */
+#tabbar button .tab-ic{position:relative;display:inline-flex}
+#tabbar button .tab-dot{position:absolute;top:-1px;right:-3px;width:9px;height:9px;border-radius:50%;
+  background:var(--red);box-shadow:0 0 0 2px var(--bg-el)}
+
+.vs-names{display:flex;align-items:center;justify-content:space-between;margin:2px 4px 10px;font-weight:700;font-size:17px}
+.vs-names span:last-child{text-align:right}
+.vs-vs{font-size:12px;font-weight:600;color:var(--label-3);text-transform:uppercase;letter-spacing:.08em}
+
+.vs-row{display:flex;align-items:center;gap:10px;padding:7px 0}
+.vs-row + .vs-row{border-top:1px solid var(--sep)}
+.vs-v{flex:0 0 30%;font-size:15px;font-variant-numeric:tabular-nums;color:var(--label-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vs-v.r{text-align:right}
+.vs-v.lead{color:var(--acc);font-weight:600}
+.vs-v small{font-size:12px;color:var(--label-3);font-weight:400}
+.vs-mid{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px}
+.vs-l{font-size:12px;color:var(--label-3);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.vs-l.vs-ex{color:var(--label);font-size:13px;white-space:normal;line-height:1.25}
+/* the bar is your share of the two totals: accent from the left, the other person's colour behind */
+.vs-bar{width:100%;height:5px;border-radius:3px;background:var(--blue);overflow:hidden}
+.vs-bar i{display:block;height:100%;background:var(--acc)}
+
+.vs-d{cursor:default}
+.vs-dots{display:flex;gap:3px}
+.vs-dots i{width:5px;height:5px;border-radius:50%;background:transparent}
+.vs-dots i.you{background:var(--acc)}
+.vs-dots i.them{background:var(--blue)}
+.vs-key.you{background:var(--acc)}
+.vs-key.them{background:var(--blue)}
+
+.vs-ask{border:1px solid color-mix(in srgb,var(--acc) 45%,transparent)}

@@ -125,6 +125,8 @@ servers:
     description: Your self-hosted instance
 
 tags:
+  - name: versus
+    description: Compare with a friend, by mutual consent (private fork feature)
   - name: meta
     description: Health and public configuration
   - name: auth
@@ -2952,6 +2954,112 @@ paths:
               example: { error: "unknown provider" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/versus:
+    get:
+      tags: [versus]
+      operationId: listVersus
+      summary: My Versus pairings
+      description: Pairings with their state, and how many incoming requests wait for an answer.
+      responses:
+        '200': { description: "`{ pairs, incoming }`." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/versus/compare:
+    get:
+      tags: [versus]
+      operationId: compareVersus
+      summary: The comparison for one active pairing
+      description: Aggregates only (sessions, sets, load, month calendar names, common best lifts, cheat meals, body weight unless switched off).
+      parameters:
+        - { name: id, in: query, required: true, schema: { type: string } }
+        - { name: today, in: query, required: false, schema: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' } }
+      responses:
+        '200': { description: "`{ pair, you, them, bests }`." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: No such active pairing. }
+
+  /api/versus/request:
+    post:
+      tags: [versus]
+      operationId: requestVersus
+      summary: Ask someone to compare
+      description: Refused when that name belongs to more than one profile.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, description: "The profile name of the person to ask." }
+      responses:
+        '200': { description: Done. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: No such request or pairing. }
+
+  /api/versus/respond:
+    post:
+      tags: [versus]
+      operationId: respondVersus
+      summary: Accept or decline a request
+      description: Only the person asked can answer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, accept]
+              properties:
+                id: { type: string }
+                accept: { type: boolean }
+      responses:
+        '200': { description: Done. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: No such request or pairing. }
+
+  /api/versus/end:
+    post:
+      tags: [versus]
+      operationId: endVersus
+      summary: End a pairing or withdraw a request
+      description: Either person may.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: string }
+      responses:
+        '200': { description: Done. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: No such request or pairing. }
+
+  /api/versus/share:
+    post:
+      tags: [versus]
+      operationId: shareVersusBodyweight
+      summary: Share or hide my body weight in a pairing
+      description: `false` hides it from the other person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, bodyweight]
+              properties:
+                id: { type: string }
+                bodyweight: { type: boolean }
+      responses:
+        '200': { description: Done. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: No such request or pairing. }
 
 components:
   securitySchemes:
