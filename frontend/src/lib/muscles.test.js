@@ -4,7 +4,7 @@ import { LANGS, DERIVED_LOCALES } from './i18n-core.js'
 import {
   MUSCLE_NAME, exerciseMuscleSnapshot, hasExplicitMuscleMetadata, levelsOf, loadOf,
   loadOfWorkouts, loadOfWeeklyPlan, matchesMuscleGroups, muscleBalanceWindow, muscleGroupsOf,
-  musclesOf, muscleWeightsOf, rankOf
+  musclesOf, muscleWeightsOf, rankOf, TODAY_WINDOW
 } from './muscles.js'
 
 describe('multi-muscle exercise metadata', () => {
@@ -262,6 +262,13 @@ describe('muscle balance windows and ranking', () => {
     expect(muscleBalanceWindow(workouts, 7, now, '2026-08-27').map(w => w.id)).toEqual(['monday'])
     expect(muscleBalanceWindow(workouts, 30, now, '2026-08-27').map(w => w.id)).toEqual(['monday', 'sunday', 'inside'])
     expect(muscleBalanceWindow(workouts, 0, now, '2026-08-27')).toEqual(workouts)
+  })
+
+  it('the 1-day range is the calendar day, not the last 24 hours', () => {
+    // 01:00 on the 25th: the 24 hours back reach Monday's noon session, the day does not.
+    const early = new Date('2026-08-25T01:00:00').getTime()
+    expect(muscleBalanceWindow(workouts, TODAY_WINDOW, early, '2026-08-25')).toEqual([])
+    expect(muscleBalanceWindow(workouts, TODAY_WINDOW, now, '2026-08-24').map(w => w.id)).toEqual(['monday'])
   })
 
   it('uses relative levels and canonical order to break load ties', () => {
