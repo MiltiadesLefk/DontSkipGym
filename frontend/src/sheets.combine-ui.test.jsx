@@ -105,7 +105,9 @@ describe('WorkoutDetail — per-routine grouping', () => {
   it('renders a legacy single-routine workout flat — no routine subheader', () => {
     const host = (workoutDetailSheet(legacy), renderTop())
     // the only routine name that could appear is the header <h3> (w.name = "Push"); there is
-    // no "Strength" subheader row
-    expect(host.querySelectorAll('.row.between').length).toBe(0)
+    // no "Strength" subheader row. The title row (h3 + rename button) is also a .row.between,
+    // so look for the subheader's sets/volume line instead of counting rows.
+    expect(host.querySelectorAll('.row.between .small.dim').length).toBe(0)
+    expect(host.textContent).not.toContain('Strength')
   })
 })
