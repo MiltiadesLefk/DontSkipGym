@@ -55,8 +55,24 @@ test('cheat meals imported from earlier data are read until the profile writes i
   assert.deepEqual(cheatMealsOf({ cheatMeals: [], legacy: { cheatMeals: [{ food: 'x', day: '2026-09-18' }] } }), []);
 });
 
+test('the month calendar names each day: sessions and cheat meals, this month only', () => {
+  const named = { ...S, workouts: [
+    { ...S.workouts[0], name: 'Legs' },
+    { ...S.workouts[1], name: 'Push', start: 2 },
+    { id: 'x', d: '2026-09-10', vol: 0, entries: [], start: 1 },
+    { ...S.workouts[2], name: 'P'.repeat(80) }
+  ] };
+  const s = summarize(named, { today: '2026-09-25' });
+  assert.deepEqual(s.calendar, {
+    '2026-09-10': { workouts: ['', 'Push'], cheat: [] },           // in the order trained; unnamed stays ''
+    '2026-09-20': { workouts: [], cheat: ['Pizza'] },
+    '2026-09-24': { workouts: ['P'.repeat(60)], cheat: ['pizza'] }  // capped
+  });
+});
+
 test('never hands over anything but aggregates', () => {
   const s = summarize(S, { today: '2026-09-25' });
-  assert.deepEqual(Object.keys(s).sort(), ['allTime', 'bodyweight', 'cheat', 'last28', 'trainedDays']);
+  assert.deepEqual(Object.keys(s).sort(), ['allTime', 'bodyweight', 'calendar', 'cheat', 'last28', 'trainedDays']);
   assert.ok(!JSON.stringify(s).includes('entries'));
+  assert.deepEqual(Object.keys(s.calendar['2026-09-24']).sort(), ['cheat', 'workouts']);
 });

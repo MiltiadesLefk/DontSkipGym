@@ -1,7 +1,8 @@
 // Versus — you and a friend side by side, by mutual consent. Ask by username; they accept or
 // decline at the top of their own Versus tab (a dot on the tab tells them it is waiting). Either
 // side can end it. With several partners, chips switch between them. What shows is aggregates
-// only, computed on the server: counts, totals, bests and which days were trained.
+// only, computed on the server: counts, totals, bests, and this month's calendar of session
+// names and cheat meals.
 import { useEffect, useState } from 'react'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
@@ -9,11 +10,12 @@ import { api } from '../lib/api.js'
 import { t, exerciseNameFor } from '../lib/i18n.js'
 import { EXIDX } from '../lib/exercises.js'
 import { todayISO, fmtNum, fmtDate, weekStartOf, weekOrder, weekDayOffset, DAYS, MONTHS_LONG } from '../lib/format.js'
-import { useVersus, refreshVersus, versusAction, inUnit, leader, pickPair } from '../lib/versus.js'
+import { useVersus, refreshVersus, versusAction, inUnit, leader, pickPair, dayEvents, halfOf } from '../lib/versus.js'
 import { confirmSheet } from '../sheets.jsx'
 import { Button, Switch } from '../components/ui.jsx'
 import Icon from '../components/Icon.jsx'
 import '../versus.css'
+import '../calendar-names.css'
 
 const toast = msg => useUI.getState().toast(msg)
 const SEL_KEY = 'gym_versus_sel'
@@ -37,7 +39,7 @@ function AskForm({ onSent }) {
         value={username} onChange={e => setUsername(e.target.value.toLowerCase())} />
       <Button variant="primary" type="submit" icon="plus" disabled={busy} style={{ flex: 'none', width: 'auto' }}>{t('Ask')}</Button>
     </div>
-    <div className="small dim" style={{ marginTop: 8 }}>{t('They see your request on their Versus tab and can accept or decline. Only totals are ever shared.')}</div>
+    <div className="small dim" style={{ marginTop: 8 }}>{t('They see your request on their Versus tab and can accept or decline. Only totals and this month\'s session names and cheat meals are shared.')}</div>
   </form>
 }
 
@@ -53,23 +55,64 @@ function Row({ label, you, them, fmt = fmtNum, lowerWins }) {
   </div>
 }
 
+// One day in full, a section per person: the cell only has room for a couple of names.
+function DaySheet({ day, events, them }) {
+  const side = (who, name) => {
+    const mine = events.filter(e => e.who === who)
+    return mine.length > 0 && <>
+      <h4 className="sec" style={{ marginTop: 12 }}>{name}</h4>
+      <div className="list">{mine.map((e, i) => <div key={i} className="item">
+        <span className="lrow-i" style={{ width: 34, height: 34, borderRadius: 8, fontSize: 19, background: who === 'you' ? 'var(--acc)' : 'var(--vs-them)', color: who === 'you' ? 'var(--on-acc)' : 'var(--vs-them-on)' }}>
+          <Icon name={e.kind === 'cheat' ? 'pizza' : 'dumbbell'} /></span>
+        <div className="grow"><div className="tt" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name || t('Workout')}</div>
+          <div className="ss">{e.kind === 'cheat' ? t('Cheat meal') : t('Workout')}</div></div>
+      </div>)}</div>
+    </>
+  }
+  return <>
+    <h3>{fmtDate(day, true)}</h3>
+    {side('you', t('You'))}
+    {side('them', them.name)}
+  </>
+}
+
+// One person's half of a day cell, in that person's colour: a workout is a tinted chip, a cheat
+// meal a solid one with the pizza.
+function Half({ events, who, className }) {
+  const { shown, more } = halfOf(events, who)
+  return <span className={'vs-half ' + className}>
+    {shown.map((e, i) => <span key={i} className={'ev vs-' + who + (e.kind === 'cheat' ? ' cheat' : '')}>
+      <span className="t">{e.kind === 'cheat' && <Icon name="pizza" />}{e.name || t('Workout')}</span></span>)}
+    {more > 0 && <span className="ev more">+{more}</span>}
+  </span>
+}
+
+// This month, like a calendar: in each day, your entries sit above the date and theirs below it.
+// A tap shows the day in full.
 function Month({ S, you, them }) {
   const now = new Date(), y = now.getFullYear(), mo = now.getMonth()
   const month = todayISO().slice(0, 7)
-  const a = new Set(you.trainedDays), b = new Set(them.trainedDays)
   const ws = weekStartOf(S)
   const cells = []
   for (let i = 0; i < weekDayOffset(new Date(y, mo, 1).getDay(), ws); i++) cells.push(<div key={'e' + i} />)
   for (let d = 1, n = new Date(y, mo + 1, 0).getDate(); d <= n; d++) {
     const iso = month + '-' + String(d).padStart(2, '0')
-    cells.push(<div key={d} className={'cal-d vs-d' + (iso === todayISO() ? ' today' : '')}>
-      <span>{d}</span><span className="vs-dots"><i className={a.has(iso) ? 'you' : ''} /><i className={b.has(iso) ? 'them' : ''} /></span>
-    </div>)
+    const events = dayEvents(you, them, iso)
+    cells.push(<button key={d} className={'cal-d named vs-cell' + (iso === todayISO() ? ' today' : '')}
+      aria-label={fmtDate(iso, true) + (events.length ? ': ' + events.map(e => (e.who === 'you' ? t('You') : them.name) + ' ' + (e.name || t('Workout'))).join(', ') : '')}
+      onClick={() => events.length && useUI.getState().openSheet(() => <DaySheet day={iso} events={events} them={them} />)}>
+      <Half events={events} who="you" className="top" />
+      <span className="vs-num">{d}</span>
+      <Half events={events} who="them" className="bottom" />
+    </button>)
   }
   return <div className="card">
     <h2>{t(MONTHS_LONG[mo])} {y}</h2>
-    <div className="cal-grid">{weekOrder(ws).map(d => <div key={d} className="cal-h">{t(DAYS[d])}</div>)}{cells}</div>
-    <div className="cal-legend"><span><i className="vs-key you" />{t('You')}</span><span><i className="vs-key them" />{them.name}</span></div>
+    <div className="cal-grid named">{weekOrder(ws).map(d => <div key={d} className="cal-h">{t(DAYS[d])}</div>)}{cells}</div>
+    <div className="cal-legend vs-legend">
+      <span className="you"><Icon name="arrowUp" />{t('You')}</span><span className="them"><Icon name="arrowDown" />{them.name}</span>
+      <span><span className="ev"><Icon name="dumbbell" /></span>{t('Workout')}</span><span><span className="ev cheat"><Icon name="pizza" /></span>{t('Cheat meal')}</span>
+    </div>
   </div>
 }
 
@@ -181,7 +224,7 @@ export default function Versus() {
       <div className="row" style={{ gap: 10 }}>
         <span className="lrow-i" style={{ width: 34, height: 34, borderRadius: 8, fontSize: 19 }}><Icon name="boxing" /></span>
         <div className="grow"><div style={{ fontWeight: 600 }}>{t('{0} wants to compare with you', p.other.name)}</div>
-          <div className="small dim">{p.other.username ? '@' + p.other.username + ' · ' : ''}{t('Only totals are shared, and either of you can stop any time.')}</div></div>
+          <div className="small dim">{p.other.username ? '@' + p.other.username + ' · ' : ''}{t('Only totals and this month\'s session names and cheat meals are shared, and either of you can stop any time.')}</div></div>
       </div>
       <div className="row" style={{ gap: 8, marginTop: 12 }}>
         <Button variant="primary" onClick={() => act('/api/versus/respond', { id: p.id, accept: true }, () => { choose(p.id); toast(t('You are now comparing with {0}', p.other.name)) })}>{t('Accept')}</Button>
