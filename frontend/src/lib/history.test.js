@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { nextTrainingDay, modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, freestyleConfig, exLine, workoutVolume, bestWeightFor, bestWeightForEntry, effortOf, stepEffort, capEffort, isBw, isPerSide, sideReps, repStep, cascadeWeight, insertWarmupRow, removeRowAt, workSetsDone, setsDone, setsDoneActive, setUnits, doneUnits, setUnitsTotal, pairAdjacent, unpairSuperset, supersetUnits, applyIntensifierPlan, pinnedNoteFor, exNoteFor, effectiveRoutineIds, effectiveRoutines, effectiveRoutineId, effectiveRoutine, lastEntryFor, entryExcluded } from './history.js'
+import { nextTrainingDay, modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, freestyleConfig, exLine, workoutVolume, bestWeightFor, bestWeightForEntry, effortOf, stepEffort, capEffort, isBw, isPerSide, sideReps, repStep, cascadeWeight, insertWarmupRow, removeRowAt, workSetsDone, setsDone, setsDoneActive, setUnits, doneUnits, setUnitsTotal, pairAdjacent, unpairSuperset, supersetUnits, applyIntensifierPlan, pinnedNoteFor, exNoteFor, effectiveRoutineIds, effectiveRoutines, effectiveRoutineId, effectiveRoutine, lastEntryFor, entryExcluded, dayAgenda } from './history.js'
 import { makeSideSet, setSideField, toggleSide } from './workout-model.js'
 import { EXDB } from './exercises.js'
 
@@ -1178,5 +1178,37 @@ describe('per-side volume and legacy timed sets (QA round 2026-09-12)', () => {
     expect(setLabel('0001', { sec: 45, done: true })).toBe('0:45')
     expect(setLabel('0001', { min: 30, speed: 8, done: true })).toBe('30 min · 4 km (8 km/h)')
     expect(setLabel('0025', { w: 60, r: 10, done: true })).toBe('60×10')
+  })
+})
+
+describe('dayAgenda', () => {
+  // 2026-08-18 is a Tuesday; the week map is keyed by getDay(), so 2 is Tuesday.
+  const TUE = '2026-08-18'
+  const base = (over = {}) => ({
+    dayPlan: {},
+    routines: [{ id: 'r1', name: 'Push', ex: [{ id: '0001' }] }, { id: 'r2', name: 'Pull', ex: [{ id: '0002' }] }],
+    week: { 2: ['r1'] },
+    workouts: [],
+    ...over
+  })
+
+  it('names the planned routine on a day with nothing logged', () => {
+    expect(dayAgenda(base(), TUE)).toEqual({ kind: 'plan', names: ['Push'] })
+  })
+
+  it('a logged session wins over the plan, and names what was actually done', () => {
+    const S = base({ workouts: [{ d: TUE, name: 'Pull' }] })
+    expect(dayAgenda(S, TUE)).toEqual({ kind: 'done', names: ['Pull'] })
+  })
+
+  it('lists every session of a day, and leaves an unnamed one for the caller to label', () => {
+    const S = base({ workouts: [{ d: TUE, name: 'Push' }, { d: TUE }, { d: '2026-08-19', name: 'Legs' }] })
+    expect(dayAgenda(S, TUE)).toEqual({ kind: 'done', names: ['Push', ''] })
+  })
+
+  it('marks a day whose plan was changed by hand, and a day set to rest is empty', () => {
+    expect(dayAgenda(base({ dayPlan: { [TUE]: 'r2' } }), TUE)).toEqual({ kind: 'ovr', names: ['Pull'] })
+    expect(dayAgenda(base({ dayPlan: { [TUE]: 'rest' } }), TUE)).toEqual({ kind: '', names: [] })
+    expect(dayAgenda(base(), '2026-08-19')).toEqual({ kind: '', names: [] })
   })
 })

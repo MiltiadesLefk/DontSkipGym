@@ -356,6 +356,21 @@ export function nextTrainingDay(S, iso) {
   }
   return null
 }
+
+/**
+ * What a calendar cell names for one day: the sessions logged on it, else the routines planned
+ * for it. A logged day reports what was done, not what was planned, because the two differ
+ * whenever you swap a session. `kind` is 'done', 'ovr' (the day's plan was changed by hand),
+ * 'plan', or '' for a rest day. A session without a name gives '' and the caller labels it.
+ */
+export function dayAgenda(S, iso) {
+  const logged = (S?.workouts || []).filter(w => w.d === iso)
+  if (logged.length) return { kind: 'done', names: logged.map(w => w.name || '') }
+  const planned = effectiveRoutines(S, iso)
+  if (!planned.length) return { kind: '', names: [] }
+  return { kind: S.dayPlan?.[iso] !== undefined ? 'ovr' : 'plan', names: planned.map(r => r.name) }
+}
+
 /**
  * Build the rows a planned exercise starts a session with: its work sets, preceded by however
  * many warm-up sets the routine asks for (`cfg.warmupSets`, 0 by default so an existing plan
