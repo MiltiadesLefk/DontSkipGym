@@ -1,7 +1,8 @@
 // Versus: two consenting profiles, side by side. Pure functions over one user's stored state —
 // the routes in server.js decide who may see whom; this only decides WHAT is shown, and that is
-// aggregates only: counts, totals, bests and which days were trained. Never a workout, a routine,
-// a note or a set list, so the other person's state never leaves the server.
+// aggregates only: counts, totals, bests, and for the current month a calendar of each day's
+// session names and cheat-meal foods. Never a workout's contents, a routine, a note or a set
+// list, so the other person's state never leaves the server.
 //
 // Loads are compared in kg whatever unit each profile logs in, so two people on different units
 // still compare like with like.
@@ -12,6 +13,8 @@ const list = v => (Array.isArray(v) ? v : []);
 const obj = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : null);
 const isDay = d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
 const round1 = n => Math.round(n * 10) / 10;
+// Longest session or food name a calendar cell carries
+const NAME_MAX = 60;
 
 export function isWarmup(s) {
   if (s?.phase != null && s.phase !== '') return String(s.phase).toLowerCase().replace(/[^a-z]/g, '') === 'warmup';
@@ -74,6 +77,15 @@ export function summarize(S, { today, shareBodyweight = true } = {}) {
     days: [...new Set(meals.filter(m => m.d.startsWith(month)).map(m => m.d))].sort()
   };
 
+  // The month as a calendar: { 'YYYY-MM-DD': { workouts: [names], cheat: [foods] } }, each list
+  // in the order logged. An unnamed session is '' and the viewer labels it.
+  const calendar = {};
+  const dayOf = d => (calendar[d] = calendar[d] || { workouts: [], cheat: [] });
+  for (const w of workouts.filter(w => w.d.startsWith(month)).sort((a, b) => (Number(a.start) || 0) - (Number(b.start) || 0))) {
+    dayOf(w.d).workouts.push(typeof w.name === 'string' ? w.name.slice(0, NAME_MAX) : '');
+  }
+  for (const m of meals.filter(m => m.d.startsWith(month))) dayOf(m.d).cheat.push(m.food.trim().slice(0, NAME_MAX));
+
   let bodyweight = null;
   if (shareBodyweight) {
     const bw = list(S?.bodyweight).filter(b => obj(b) && isDay(b.d) && Number(b.w) > 0).sort((a, b) => (a.d < b.d ? -1 : 1));
@@ -93,6 +105,7 @@ export function summarize(S, { today, shareBodyweight = true } = {}) {
     allTime: tally(workouts),
     last28: tally(workouts.filter(w => w.d >= since28 && w.d <= today)),
     trainedDays,
+    calendar,
     cheat,
     bodyweight
   };
