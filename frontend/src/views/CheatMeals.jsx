@@ -11,6 +11,7 @@ import { cheatMealsOf, newCheatMeal, foodCounts, foodBreakdown, weekCount, byDay
 import { confirmSheet } from '../sheets.jsx'
 import { Button } from '../components/ui.jsx'
 import Icon from '../components/Icon.jsx'
+import '../calendar-names.css'
 
 const toast = msg => useUI.getState().toast(msg)
 
@@ -53,10 +54,15 @@ function MonthCard({ S, entries }) {
   for (let d = 1, n = new Date(y, mo + 1, 0).getDate(); d <= n; d++) {
     const iso = month + '-' + String(d).padStart(2, '0')
     const has = days[iso]
-    cells.push(<button key={d} className={'cal-d' + (has ? ' has' : '') + (iso === todayISO() ? ' today' : '')}
+    // Like a calendar: the food itself in the cell, two at most, the rest as "+n".
+    cells.push(<button key={d} className={'cal-d named' + (has ? ' has' : '') + (iso === todayISO() ? ' today' : '')}
       aria-label={has ? fmtDate(iso, true) + ': ' + has.map(e => e.food).join(', ') : fmtDate(iso, true)}
       onClick={() => has && useUI.getState().openSheet(close => <DaySheet day={iso} close={close} />)}>
-      <span>{d}</span><i className={has ? 'done' : ''} />
+      <span>{d}</span>
+      {has && <span className="evs">
+        {has.slice(0, 2).map(e => <span key={e.id} className="ev done"><span className="t">{e.food}</span></span>)}
+        {has.length > 2 && <span className="ev more">+{has.length - 2}</span>}
+      </span>}
     </button>)
   }
   const inMonth = Object.values(days).reduce((a, l) => a + l.length, 0)
@@ -69,7 +75,7 @@ function MonthCard({ S, entries }) {
     <div className="small muted" style={{ textAlign: 'center' }}>
       {inMonth ? t(inMonth === 1 ? '{0} cheat meal' : '{0} cheat meals', inMonth) + ' · ' + t(Object.keys(days).length === 1 ? '{0} day' : '{0} days', Object.keys(days).length) : t('No cheat meals this month')}
     </div>
-    <div className="cal-grid">{weekOrder(ws).map(d => <div key={d} className="cal-h">{t(DAYS[d])}</div>)}{cells}</div>
+    <div className="cal-grid named">{weekOrder(ws).map(d => <div key={d} className="cal-h">{t(DAYS[d])}</div>)}{cells}</div>
     {inMonth > 0 && <div className="small dim" style={{ textAlign: 'center', marginTop: 10 }}>{t('Tap a marked day to see what it was')}</div>}
   </div>
 }
