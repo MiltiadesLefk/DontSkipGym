@@ -1698,6 +1698,19 @@ function WorkoutDetail({ w, close }) {
       if (text) rec.note = text; else delete rec.note
     })
   }, [])
+  // A free session is named "Freestyle" when it starts, before you know what it will be — so the
+  // title has to stay editable once it is done, the same way the note does.
+  const [editingName, setEditingName] = useState(false)
+  const [name, setName] = useState(w.name || '')
+  const saveName = () => {
+    const text = name.trim().slice(0, 60)
+    setEditingName(false)
+    if (!text) { setName(w.name || ''); return }
+    update(s => {
+      const rec = s.workouts.find(x => x.id === w.id)
+      if (rec) { rec.name = text; rec.customName = true }
+    })
+  }
   // A combined session's entries carry a `rid`; group them into per-routine sections in merge
   // order. A legacy single-routine workout (one routineIds, or no rid anywhere) renders flat.
   const entryRow = (e, i) => {
@@ -1720,7 +1733,15 @@ function WorkoutDetail({ w, close }) {
   })
   const grouped = groups.length > 1 || (groups[0] && groups[0].rid && (w.routineIds || []).length > 1)
   return <>
-    <h3>{w.name}</h3>
+    {editingName
+      ? <input className="input" type="text" autoFocus maxLength={60} value={name} style={{ marginBottom: 8 }}
+          placeholder={t('Workout title')}
+          onChange={e => setName(e.target.value)} onBlur={saveName}
+          onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} />
+      : <div className="row between" style={{ gap: 8, alignItems: 'flex-start' }}>
+          <h3>{st.workouts.find(x => x.id === w.id)?.name ?? w.name}</h3>
+          <button className="iconbtn" aria-label={t('Rename workout')} onClick={() => setEditingName(true)}><Icon name="pencil" /></button>
+        </div>}
     <div className="muted small" style={{ marginBottom: 12 }}>{[fmtDate(w.d, true), ...durPart(w.end - w.start), fmtVol(w.vol, st.unit), ...(w.bw ? [fmtNum(w.bw) + ' ' + st.unit] : [])].join(' · ')}</div>
     {grouped ? groups.map(g => {
       const r = g.rid ? st.routines.find(x => x.id === g.rid) : null
