@@ -22,9 +22,6 @@ networks:
   backend:
     internal: true
 
-volumes:
-  dsg-data:   # users, passkeys, password hashes, per-user state, session + VAPID keys, audit log
-
 x-hardening: &hardening
   restart: unless-stopped
   read_only: true
@@ -49,7 +46,7 @@ services:
       - DATA_DIR=/data
     user: "1000:1000"            # upstream's image runs as root; the data volume is owned by 1000
     volumes:
-      - dsg-data:/data
+      - ${DATA_DIR:-./data}:/data   # users, passkeys, password hashes, per-user state, session + VAPID keys, audit log
     networks: [backend]
     <<: *hardening
     tmpfs:
