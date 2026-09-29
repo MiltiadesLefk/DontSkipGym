@@ -2742,6 +2742,15 @@ function Calendar({ start, close }) {
 }
 export const calendarSheet = start => ui().openSheet(close => <Calendar start={start} close={close} />)
 
+// A tap on a day, from the month calendar or the Home week strip: a trained day shows its session
+// (a list to pick from when there were several), any other day offers to plan one.
+export function openDaySheet(st, iso) {
+  const ws = st.workouts.filter(w => w.d === iso)
+  if (!ws.length) return dayOverrideSheet(iso)
+  if (ws.length === 1) return workoutDetailSheet(ws[0])
+  ui().openSheet(c2 => <><h3>{fmtDate(iso, true)}</h3><div className="list">{ws.map(w => <WorkoutRow key={w.id} w={w} onClick={() => { c2(); workoutDetailSheet(w) }} />)}</div></>)
+}
+
 /* shared small workout row (used in lists) */
 export function WorkoutRow({ w, onClick }) {
   const st = useStore(s => s.S)
