@@ -274,13 +274,19 @@ export const loadOfWorkouts = (workouts, pick) =>
  *
  * The 7-day range is "this week", not "the last seven days", so it moves with the profile's
  * first weekday — the caller passes it since this takes workouts rather than the whole state.
+ * Likewise the 1-day range is "today" (the calendar day), not the last 24 hours: a session
+ * last night must not colour this morning's map.
  */
+export const TODAY_WINDOW = 1
+
 export function muscleBalanceWindow(workouts, win, now = Date.now(), today = todayISO(), ws = MONDAY) {
   return (workouts || []).filter(workout => win === 0
     ? true
-    : win === 7
-      ? weekKey(workout.d, ws) === weekKey(today, ws)
-      : (workout.start || new Date(workout.d).getTime()) > now - win * 86400000)
+    : win === TODAY_WINDOW
+      ? workout.d === today
+      : win === 7
+        ? weekKey(workout.d, ws) === weekKey(today, ws)
+        : (workout.start || new Date(workout.d).getTime()) > now - win * 86400000)
 }
 
 /** Load a routine *would* produce, from its planned set counts. */
