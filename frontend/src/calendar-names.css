@@ -1,0 +1,13 @@
+/* Month calendars that name what happened on each day (Cheat meals, Versus). Kept out of
+   index.css like versus.css; the name chips themselves (.ev) are the Home week strip's. */
+
+.cal-grid.named{gap:4px}
+.cal-d.named{
+  aspect-ratio:auto;min-width:0;min-height:60px;justify-content:flex-start;
+  padding:5px 2px 4px;gap:3px;background:var(--surface-2);font-size:14px;
+}
+.cal-d.named.has{background:var(--surface-2);color:var(--label)}
+.cal-d.named:active{background:var(--surface-3)}
+.cal-d.named .evs{display:flex;flex-direction:column;gap:2px;width:100%}
+.cal-d.named .ev{font-size:9.5px;padding:1px 3px;text-align:center}
+.cal-d.named .ev .t{display:block;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
