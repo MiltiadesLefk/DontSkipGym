@@ -47,6 +47,7 @@ function MonthCard({ S, entries }) {
   const [cur, setCur] = useState(() => { const d = new Date(); d.setDate(1); return d })
   const y = cur.getFullYear(), mo = cur.getMonth()
   const month = y + '-' + String(mo + 1).padStart(2, '0')
+  const atCurrentMonth = month >= todayISO().slice(0, 7)
   const days = byDay(entries, month)
   const ws = weekStartOf(S)
   const cells = []
@@ -70,7 +71,7 @@ function MonthCard({ S, entries }) {
     <div className="row between" style={{ marginBottom: 2 }}>
       <button className="iconbtn" onClick={() => setCur(new Date(y, mo - 1, 1))} aria-label={t('Previous month')}><Icon name="chevronLeft" /></button>
       <h2 style={{ margin: 0 }}>{t(MONTHS_LONG[mo])} {y}</h2>
-      <button className="iconbtn" onClick={() => setCur(new Date(y, mo + 1, 1))} aria-label={t('Next month')}><Icon name="chevronRight" /></button>
+      <button className="iconbtn" disabled={atCurrentMonth} onClick={() => !atCurrentMonth && setCur(new Date(y, mo + 1, 1))} aria-label={t('Next month')}><Icon name="chevronRight" /></button>
     </div>
     <div className="small muted" style={{ textAlign: 'center' }}>
       {inMonth ? t(inMonth === 1 ? '{0} cheat meal' : '{0} cheat meals', inMonth) + ' · ' + t(Object.keys(days).length === 1 ? '{0} day' : '{0} days', Object.keys(days).length) : t('No cheat meals this month')}
