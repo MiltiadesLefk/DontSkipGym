@@ -1772,6 +1772,7 @@ function Calendar({ start, close }) {
   const st = useStore(s => s.S)
   const [cur, setCur] = useState(() => { const d = start ? new Date(start) : new Date(); d.setDate(1); return d })
   const y = cur.getFullYear(), mo = cur.getMonth()
+  const atCurrentMonth = (y + '-' + String(mo + 1).padStart(2, '0')) >= todayISO().slice(0, 7)
   const byDay = {}
   st.workouts.forEach(w => (byDay[w.d] = byDay[w.d] || []).push(w))
   // Which column the 1st sits in, and therefore how many blanks come before it.
@@ -1794,7 +1795,7 @@ function Calendar({ start, close }) {
     <div className="row between" style={{ marginBottom: 2 }}>
       <button className="iconbtn" onClick={() => setCur(new Date(y, mo - 1, 1))} aria-label="Previous month"><Icon name="chevronLeft" /></button>
       <h3 style={{ margin: 0 }}>{t(MONTHS_LONG[mo])} {y}</h3>
-      <button className="iconbtn" onClick={() => setCur(new Date(y, mo + 1, 1))} aria-label="Next month"><Icon name="chevronRight" /></button>
+      <button className="iconbtn" disabled={atCurrentMonth} onClick={() => !atCurrentMonth && setCur(new Date(y, mo + 1, 1))} aria-label="Next month"><Icon name="chevronRight" /></button>
     </div>
     <div className="small muted" style={{ textAlign: 'center' }}>{monthWs.length ? `${t(monthWs.length === 1 ? '{0} workout' : '{0} workouts', monthWs.length)} · ${fmtDur(monthMs)} · ${fmtVol(monthVol, st.unit)}` : t('No workouts this month')}</div>
     <div className="cal-grid">{weekOrder(ws).map(d => <div key={d} className="cal-h">{t(DAYS[d])}</div>)}{cells}</div>

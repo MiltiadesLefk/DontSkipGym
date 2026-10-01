@@ -51,12 +51,15 @@ const doneWorkSets = e => list(e?.sets).filter(s => obj(s) && s.done && !isWarmu
 
 /**
  * One side of the comparison. `today` is the viewer's own calendar day ('YYYY-MM-DD'), so "this
- * week" and "this month" follow the person looking, not the server's clock.
+ * week" and "this month" follow the person looking, not the server's clock. `month` ('YYYY-MM')
+ * is the calendar page being browsed — it defaults to today's month but can be any earlier one,
+ * independently of `today`, so paging the calendar back never shifts the last-28-days numbers.
  */
-export function summarize(S, { today, shareBodyweight = true } = {}) {
+export function summarize(S, { today, month: monthArg, shareBodyweight = true } = {}) {
   const toKg = (S?.unit === 'lb') ? (x => x * LB) : (x => x);
   const workouts = list(S?.workouts).filter(w => obj(w) && isDay(w.d));
-  const since28 = dayMinus(today, 27), since7 = dayMinus(today, 6), month = today.slice(0, 7);
+  const since28 = dayMinus(today, 27), since7 = dayMinus(today, 6);
+  const month = (/^\d{4}-\d{2}$/.test(monthArg) && monthArg <= today.slice(0, 7)) ? monthArg : today.slice(0, 7);
 
   const tally = ws => {
     let volume = 0, sets = 0;

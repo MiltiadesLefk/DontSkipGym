@@ -87,11 +87,12 @@ function Half({ events, who, className }) {
   </span>
 }
 
-// This month, like a calendar: in each day, your entries sit above the date and theirs below it.
-// A tap shows the day in full.
-function Month({ S, you, them }) {
-  const now = new Date(), y = now.getFullYear(), mo = now.getMonth()
-  const month = todayISO().slice(0, 7)
+// Like the Cheat meals calendar: in each day, your entries sit above the date and theirs below
+// it. A tap shows the day in full. `cur` pages between months, never past the current one.
+function Month({ S, you, them, cur, setCur }) {
+  const y = cur.getFullYear(), mo = cur.getMonth()
+  const month = y + '-' + String(mo + 1).padStart(2, '0')
+  const atCurrentMonth = month >= todayISO().slice(0, 7)
   const ws = weekStartOf(S)
   const cells = []
   for (let i = 0; i < weekDayOffset(new Date(y, mo, 1).getDay(), ws); i++) cells.push(<div key={'e' + i} />)
@@ -107,7 +108,11 @@ function Month({ S, you, them }) {
     </button>)
   }
   return <div className="card">
-    <h2>{t(MONTHS_LONG[mo])} {y}</h2>
+    <div className="row between" style={{ marginBottom: 2 }}>
+      <button className="iconbtn" onClick={() => setCur(new Date(y, mo - 1, 1))} aria-label={t('Previous month')}><Icon name="chevronLeft" /></button>
+      <h2 style={{ margin: 0 }}>{t(MONTHS_LONG[mo])} {y}</h2>
+      <button className="iconbtn" disabled={atCurrentMonth} onClick={() => !atCurrentMonth && setCur(new Date(y, mo + 1, 1))} aria-label={t('Next month')}><Icon name="chevronRight" /></button>
+    </div>
     <div className="cal-grid named">{weekOrder(ws).map(d => <div key={d} className="cal-h">{t(DAYS[d])}</div>)}{cells}</div>
     <div className="cal-legend vs-legend">
       <span className="you"><Icon name="arrowUp" />{t('You')}</span><span className="them"><Icon name="arrowDown" />{them.name}</span>
@@ -119,13 +124,15 @@ function Month({ S, you, them }) {
 function Compare({ S, pair }) {
   const [data, setData] = useState(null)
   const [err, setErr] = useState(null)
+  const [cur, setCur] = useState(() => { const d = new Date(); d.setDate(1); return d })
   useEffect(() => {
     let alive = true
     setData(null); setErr(null)
-    api(`/api/versus/compare?id=${encodeURIComponent(pair.id)}&today=${todayISO()}`)
+    const month = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0')
+    api(`/api/versus/compare?id=${encodeURIComponent(pair.id)}&today=${todayISO()}&month=${month}`)
       .then(d => alive && setData(d)).catch(e => alive && setErr(e.message))
     return () => { alive = false }
-  }, [pair.id, pair.shareBw])
+  }, [pair.id, pair.shareBw, cur])
   if (err) return <div className="card muted small">{err}</div>
   if (!data) return <div className="card muted small">{t('Loading…')}</div>
   const { you, them, bests } = data
@@ -149,7 +156,7 @@ function Compare({ S, pair }) {
       <Row label={t('Total load')} you={you.last28.volume} them={them.last28.volume} fmt={load} />
     </div>
 
-    <Month S={S} you={you} them={them} />
+    <Month S={S} you={you} them={them} cur={cur} setCur={setCur} />
 
     <div className="card">
       <h2>{t('All time')}</h2>

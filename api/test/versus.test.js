@@ -70,6 +70,23 @@ test('the month calendar names each day: sessions and cheat meals, this month on
   });
 });
 
+test('month pages the calendar independently of today, without moving last28/bodyweight', () => {
+  const s = summarize(S, { today: '2026-09-25', month: '2026-08' });
+  assert.deepEqual(s.trainedDays, ['2026-08-01']);
+  assert.deepEqual(s.cheat.days, ['2026-08-02']);
+  assert.deepEqual(s.calendar, { '2026-08-01': { workouts: [''], cheat: [] }, '2026-08-02': { workouts: [], cheat: ['Burger'] } });
+  assert.deepEqual(s.last28, { workouts: 2, volume: 3500, sets: 4 }); // unaffected by the month being browsed
+  assert.deepEqual(s.bodyweight, { kg: 78.2, d: '2026-09-20', change30: -0.8 });
+});
+
+test('an out-of-range or malformed month falls back to today\'s month', () => {
+  const future = summarize(S, { today: '2026-09-25', month: '2026-10' });
+  const bad = summarize(S, { today: '2026-09-25', month: 'not-a-month' });
+  const def = summarize(S, { today: '2026-09-25' });
+  assert.deepEqual(future.calendar, def.calendar);
+  assert.deepEqual(bad.calendar, def.calendar);
+});
+
 test('never hands over anything but aggregates', () => {
   const s = summarize(S, { today: '2026-09-25' });
   assert.deepEqual(Object.keys(s).sort(), ['allTime', 'bodyweight', 'calendar', 'cheat', 'last28', 'trainedDays']);

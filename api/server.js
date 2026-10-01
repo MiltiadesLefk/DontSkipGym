@@ -1131,11 +1131,12 @@ const routes = {
     if (!v) return json(res, 404, { error: 'no such pairing' });
     const other = db.users.find(u => u.id === (v.from === user.id ? v.to : v.from));
     const today = /^\d{4}-\d{2}-\d{2}$/.test(q.get('today') || '') ? q.get('today') : new Date().toISOString().slice(0, 10);
+    const month = /^\d{4}-\d{2}$/.test(q.get('month') || '') ? q.get('month') : undefined;
     const mine = readState(user.id) || {}, theirs = readState(other.id) || {};
     json(res, 200, {
       pair: versusView(v, user.id),
-      you: { name: user.name, ...summarize(mine, { today, shareBodyweight: true }) },
-      them: { name: other.name, ...summarize(theirs, { today, shareBodyweight: !(v.hideBw || {})[other.id] }) },
+      you: { name: user.name, ...summarize(mine, { today, month, shareBodyweight: true }) },
+      them: { name: other.name, ...summarize(theirs, { today, month, shareBodyweight: !(v.hideBw || {})[other.id] }) },
       bests: commonBests(mine, theirs)
     });
   },
