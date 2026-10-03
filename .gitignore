@@ -32,3 +32,11 @@ frontend/bundle-size.json
 
 # Local planning notes
 docs/superpowers/plans/
+
+# Site-specific config and data stay on the host, never in git
+compose.override.yaml
+.env.*
+!.env.example
+
+# Personal feature docs for re-applying the "mine" branch after an upstream sync (.mine/README.md)
+.mine/

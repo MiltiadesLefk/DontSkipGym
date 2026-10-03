@@ -1,24 +1,29 @@
-# DontSkipGym on the my VPS. Docker Compose prefers compose.yaml over
+# DontSkipGym: hardened self-hosting setup. Docker Compose prefers compose.yaml over
 # docker-compose.yml, so a plain `docker compose up -d --build` in this directory uses this
 # file; docker-compose.yml stays upstream's generic self-hosting setup.
 #
-# The main gym app, for self-hosting. The reverse proxy forwards gym.example.com to
-# `gym:3000` over proxy-net, so the web container answers to exactly that: network alias `gym`,
-# NGINX_PORT 3000. No NPM or Cloudflare change is needed.
+# Everything site-specific is a variable (see .env.example) or lives in a gitignored
+# compose.override.yaml, so nothing about your own server needs to be committed:
+#   DATA_DIR      host folder for users, passkeys, password hashes, per-user state, session +
+#                 VAPID keys and the audit log (default ./data; must be writable by uid 1000)
+#   HOST_PORT     port published on 127.0.0.1 for your reverse proxy (default 3000)
+#   TAG           image tag (default local)
+#   COMPOSE_PROJECT_NAME  compose project name (default dontskipgym)
+# To join an existing reverse-proxy network instead of publishing a port, add a
+# compose.override.yaml (copy compose.override.example.yaml).
 #
-# proxy-net is created --internal: no route off the host. The exercise media is fetched once on the
-# host (scripts/fetch-media.sh), so nothing needs egress. The one thing that does is Web Push
-# (rest-timer and reminder notifications), which therefore cannot deliver; enabling it means
-# putting `api` on egress-net. See docs/SELF_HOSTING.md.
+# The api sits on an internal network that only the web container shares, so the API is
+# reachable only through web. The exercise media is fetched once on the host
+# (scripts/fetch-media.sh). Web Push needs outbound access from `api`; with the internal
+# network it cannot deliver. See docs/SELF_HOSTING.md.
 #
 # All hardening lives here rather than in upstream's Dockerfiles, so their updates merge cleanly.
-# Do not start the retired `previous-gym` container while this runs: both would answer to `gym`.
-name: dontskipgym
+name: ${COMPOSE_PROJECT_NAME:-dontskipgym}
 
 networks:
-  proxy-net:
-    external: true
-  # web <-> api only. NPM is not on it, so the API is reachable only through web.
+  # web's way out to the published port (an internal network cannot publish one).
+  public: {}
+  # web <-> api only. No proxy is on it, so the API is reachable only through web.
   backend:
     internal: true
 
@@ -38,15 +43,14 @@ services:
     build:
       context: ./api
       target: default            # no AI Coach runtime
-    image: dontskipgym-api:local
-    container_name: dontskipgym-api
+    image: dontskipgym-api:${TAG:-local}
     env_file: .env
     environment:
       - PORT=3000
       - DATA_DIR=/data
     user: "1000:1000"            # upstream's image runs as root; the data volume is owned by 1000
     volumes:
-      - ${DATA_DIR:-./data}:/data   # users, passkeys, password hashes, per-user state, session + VAPID keys, audit log
+      - ${DATA_DIR:-./data}:/data
     networks: [backend]
     <<: *hardening
     tmpfs:
@@ -66,8 +70,7 @@ services:
       dockerfile: web/Dockerfile
       args:
         - VITE_APP_NAME=DontSkipGym
-    image: dontskipgym-web:local
-    container_name: dontskipgym-web
+    image: dontskipgym-web:${TAG:-local}
     depends_on:
       api:
         condition: service_healthy
@@ -83,10 +86,9 @@ services:
     volumes:
       - ./media/img:/usr/share/nginx/html/img:ro
       - ./media/gif:/usr/share/nginx/html/gif:ro
-    networks:
-      proxy-net:
-        aliases: [gym]
-      backend: {}
+    ports:
+      - "127.0.0.1:${HOST_PORT:-3000}:3000"
+    networks: [public, backend]
     <<: *hardening
     tmpfs:
       - /etc/nginx/conf.d:rw,noexec,nosuid,nodev,size=1m,uid=101,gid=101
