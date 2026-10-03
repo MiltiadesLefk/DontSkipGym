@@ -23,3 +23,8 @@ node_modules
 junit.xml
 coverage/
 frontend/bundle-size.json
+
+# Site-specific config and data stay on the host, never in git
+compose.override.yaml
+.env.*
+!.env.example

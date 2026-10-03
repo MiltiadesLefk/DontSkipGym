@@ -1,0 +1,13 @@
+# Copy to compose.override.yaml (gitignored) for site-specific wiring, e.g. joining a
+# reverse-proxy network that already exists on your host instead of publishing a port.
+services:
+  web:
+    ports: !reset []
+    networks: !override
+      proxy:
+        aliases: [gym]
+      backend: {}
+networks:
+  proxy:
+    name: your-proxy-network   # an existing external network
+    external: true
