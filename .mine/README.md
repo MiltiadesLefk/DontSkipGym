@@ -63,10 +63,20 @@ docker compose -f compose.yaml config -q      # parses only, starts nothing
 | 04 | APP_NAME rebranding | re-applied |
 | 05 | 1D barcode gym cards | re-applied |
 | 06 | Cardio time + distance | re-applied (speed column replaced; mph still shown for derived speed) |
-| 07 | Cheat meals tab | re-applied (+ sync-merge entries) |
+| 07 | Cheat meals tab | re-applied, now in `frontend/src/private/cheat-meals/` (hooks only in upstream files) |
 | 08 | Hardened compose.yaml | re-applied (media volume removed — media ships in the image now) |
-| 09 | Versus tab | re-applied, asks by profile name instead of username; routes in openapi.yaml |
+| 09 | Versus tab | re-applied, asks by profile name; now in `api/private/` + `frontend/src/private/versus/`; routes in openapi.yaml |
 | 10 | Home week strip names | re-applied |
 | 11 | Rename finished workout, Today range | re-applied |
 
 Original (pre-sync) history: branch `backup/mine-before-public-sync-20261010`.
+
+## Deploy routine (this host)
+1. `scripts/sync-mine.sh --verify` → `SAFE TO DEPLOY`.
+2. Back up the data folder: `cp -a $DATA_DIR /root/backups/dontskipgym-data-<time>` (DATA_DIR is in `.env`, under /opt).
+3. Keep rollback images: `docker tag dontskipgym-api:new dontskipgym-api:prev` (same for web).
+4. `git push --force-with-lease origin mine`, then `docker compose up -d --build`
+   (`compose.override.yaml`, gitignored, keeps web on the `gym-net` proxy network — recreate it from the example if missing).
+5. Check: `docker ps` healthy; from the proxy container `curl http://gym:3000/api/health`.
+   Rollback: retag `:prev` to `:new`, `docker compose up -d --no-build`.
+Disk is tight (same disk as the data): `docker builder prune -f` frees build cache.
