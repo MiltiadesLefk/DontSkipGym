@@ -10,7 +10,18 @@ exercises, cheat meals and — unless switched off per pairing — body weight.
 
 **Depends on** 07 (cheat meals shown in the calendar).
 
-**API (`api/`)**
+**Layout since 2026-10-11 (private/ refactor):**
+- API: `api/private/versus.js` (pure helpers), `api/private/versus-routes.js` (routes, db.versus init,
+  limits, `onUserDeleted`), `api/private/index.js` (registry: every `*-routes.js` there is loaded —
+  a new private API feature is just a new file). Hooks in upstream files: `api/server.js` imports
+  `loadPrivate`, builds `privateHooks` above `const routes = {`, spreads `...privateHooks.routes` at the
+  end of `routes`, and calls `privateHooks.onUserDeleted?.(u.id)` in the admin delete route.
+  `api/Dockerfile` has one extra line `COPY private ./private`. Tests: `api/test/private-*.test.js`;
+  `api/test/openapi-routes.test.js` also scans `api/private/*-routes.js`.
+- Frontend: `frontend/src/private/versus/` (Versus.jsx, versus.js + test, versus.css, feature.js with the
+  tab + polling dot + audit labels, routes.jsx). Hooks: see feature 07.
+
+**API (`api/`) — original description**
 - `api/versus.js` (+ `api/test/versus.test.js`, `api/test/server-versus.test.js`): `summarize`,
   `commonBests`, month calendar.
 - `api/server.js`: `import { summarize, commonBests } from './versus.js'`; `db.versus` array
@@ -19,7 +30,7 @@ exercises, cheat meals and — unless switched off per pairing — body weight.
   `versusView`; routes `GET /api/versus`, `POST /api/versus/request|respond|end|share`,
   `GET /api/versus/compare`; account deletion also drops its pairings
   (`db.versus = db.versus.filter(...)` in the admin delete route); calendar capped to current month.
-- `api/Dockerfile`: `COPY ... versus.js` (**easy to forget — the container crashes without it**).
+- `api/Dockerfile`: now `COPY private ./private` (the registry loads every file in it).
 
 **Frontend**
 - `lib/versus.js` (+ test): zustand `useVersus` (`incoming` count), `refreshVersus`, calendar helpers.

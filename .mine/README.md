@@ -8,17 +8,27 @@ upstream/main ──► origin/main (GitHub "Sync fork" keeps it equal)      = l
 tag mine-base = the upstream commit `mine` currently sits on
 ```
 
-This folder (`.mine/`, gitignored — copy it somewhere safe too) explains every private feature
+This folder (`.mine/`, tracked on `mine`) explains every private feature
 (`features/NN-*.md`): what it does, which files, what must survive a conflict, how to test it.
+
+## Where private code lives (keep it this way)
+- **New private features go in `private/` folders** — `frontend/src/private/<feature>/` (a `feature.js`
+  describing tab/routes/sync lists/audit labels/icons, `routes.jsx`, views, tests) and
+  `api/private/<feature>-routes.js` (default export `feature(ctx)` returning `{ routes, onUserDeleted }`).
+  Upstream-owned files then only carry a handful of one-line hooks (App.jsx, TabBar.jsx, Icon.jsx,
+  audit.js, sync-merge.js, api/server.js, api/Dockerfile). A sync conflict is therefore usually just one
+  of those hook lines: re-add it, nothing else.
+- Features that change upstream screens in place (cardio 06, week strip 10, rename/Today 11, barcode 05)
+  can't live in `private/`; they conflict now and then.
 
 ## Every time you want upstream's latest
 
 1. GitHub → your fork → **Sync fork** → *Update branch*  (updates `main` only; `mine` shows "behind" — expected).
-2. In the repo: `scripts/sync-mine.sh`
+2. In the repo: `scripts/sync-mine.sh --verify`  (`--verify` runs scripts/verify-mine.sh afterwards: all tests, build, compose parse, on a scratch data dir; it prints SAFE TO DEPLOY or NOT SAFE)
    - fast-forwards local `main`, keeps the old `mine` as `backup/mine-<time>`, replays the
      feature commits onto the new `main` (`git rebase --onto main mine-base mine`), and moves `mine-base`.
    - `git rerere` is on, so a conflict you resolved once is resolved automatically next time.
-3. No conflicts → run the tests (below), then `git push --force-with-lease origin mine`.
+3. `SAFE TO DEPLOY` → `git push --force-with-lease origin mine`, back up the data folder, then `docker compose up -d --build`.
 4. Conflicts → tell Claude: **"Continue the mine sync. Read .mine/README.md and the feature docs."**
    It resolves each conflicting commit using the matching feature doc, then `git rebase --continue`
    and `scripts/sync-mine.sh --finish`.
@@ -36,7 +46,7 @@ This folder (`.mine/`, gitignored — copy it somewhere safe too) explains every
 - If upstream ships something equivalent to a feature (as it did with password login), drop your
   commit (`git rebase -i`, delete the line) and mark the doc "superseded".
 
-## Test checklist after a sync (use a SCRATCH data dir, never the real one)
+## Manual test checklist (scripts/verify-mine.sh does exactly this on a scratch data dir)
 ```
 cd frontend && npm ci && npx vitest run && npm run build
 cd api      && DATA_DIR=$(mktemp -d) npm test

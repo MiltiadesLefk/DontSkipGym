@@ -24,7 +24,10 @@ stays untouched so upstream merges cleanly) runs the app behind a reverse proxy,
 **Old commits** `86aecfaa5`, `7ff36891d` (host folder instead of named volume), `7a9b9dfff` (generic via env)
 
 **Collision hotspots** none structurally (new files). If upstream renames Dockerfile paths, the
-`web` build `dockerfile:` and the `api` `target:` need updating; `api/Dockerfile` must `COPY` every
-module `server.js` imports (see feature 09: `versus.js`).
+`web` build `dockerfile:` and the `api` `target:` need updating; `api/Dockerfile` must `COPY private ./private` (feature 09).
 
 **Verify** `docker compose config` parses; `docker compose up -d --build`; `curl localhost:$HOST_PORT/api/health`.
+
+**Host wiring (not in git):** `compose.override.yaml` on the server joins the external `gym-net` proxy
+network (alias `gym`, no published port) — copy `compose.override.example.yaml`. `.env` holds `DATA_DIR=/opt/dontskipgym/data`,
+`TAG=new`, `APP_NAME`, `SETUP_CODE`, `INVITE_ONLY`… Rollback images: `dontskipgym-{api,web}:prev` (tag them back to `:new`).

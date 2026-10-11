@@ -7,7 +7,14 @@ the food) and the recent list.
 **Data** Stored in the profile as `S.cheatMeals` and merged across devices like workouts
 (`lib/sync-merge.js` + test). History migrated from the old app is read until the first new entry.
 
-**Where**
+**Layout since 2026-10-11 (private/ refactor):** the feature's own files live in
+`frontend/src/private/cheat-meals/` (CheatMeals.jsx, cheat-meals.js + test, calendar-names.css,
+feature.js = tab/sync list/icon description, routes.jsx, icons.jsx). Upstream-owned files only carry
+tiny hooks: `App.jsx` (`{privateRoutes}`), `TabBar.jsx` (`<PrivateTabs after=… />`), `Icon.jsx`
+(`Object.assign(P, privateIcons)`), `lib/sync-merge.js` (`privateSyncLists`, see below). If a sync
+conflict hits one of those hook lines, re-add the hook; the feature itself is untouched.
+
+**Where (original, pre-refactor description)**
 - `frontend/src/lib/cheat-meals.js` (+ test): model, counts, calendar helpers.
 - `frontend/src/views/CheatMeals.jsx`: the tab; `calendar-names.css`: calendar cell names
   (shared with Versus, feature 09); calendar can't go past the current month.
