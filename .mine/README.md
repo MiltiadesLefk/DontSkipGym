@@ -11,6 +11,8 @@ tag mine-base = the upstream commit `mine` currently sits on
 This folder (`.mine/`, tracked on `mine`) explains every private feature
 (`features/NN-*.md`): what it does, which files, what must survive a conflict, how to test it.
 
+Short version for humans: see `SYNC.md` in the repo root.
+
 ## Where private code lives (keep it this way)
 - **New private features go in `private/` folders** — `frontend/src/private/<feature>/` (a `feature.js`
   describing tab/routes/sync lists/audit labels/icons, `routes.jsx`, views, tests) and
