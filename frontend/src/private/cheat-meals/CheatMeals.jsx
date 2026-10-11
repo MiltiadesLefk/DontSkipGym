@@ -3,15 +3,15 @@
 // calendar of cheat days, and the recent list. Only ever your own entries; a head-to-head
 // between two people is a separate (Versus) screen.
 import { useState } from 'react'
-import { useStore } from '../store/useStore.js'
-import { useUI } from '../store/useUI.js'
-import { t } from '../lib/i18n.js'
-import { todayISO, fmtDate, weekStartOf, weekOrder, weekDayOffset, DAYS, MONTHS_LONG } from '../lib/format.js'
-import { cheatMealsOf, newCheatMeal, foodCounts, foodBreakdown, weekCount, byDay, recent, FOOD_MAX } from '../lib/cheat-meals.js'
-import { confirmSheet } from '../sheets.jsx'
-import { Button } from '../components/ui.jsx'
-import Icon from '../components/Icon.jsx'
-import '../calendar-names.css'
+import { useStore } from '../../store/useStore.js'
+import { useUI } from '../../store/useUI.js'
+import { t } from '../../lib/i18n.js'
+import { todayISO, fmtDate, weekStartOf, weekOrder, weekDayOffset, DAYS, MONTHS_LONG } from '../../lib/format.js'
+import { cheatMealsOf, newCheatMeal, foodCounts, foodBreakdown, weekCount, byDay, recent, FOOD_MAX } from './cheat-meals.js'
+import { confirmSheet } from '../../sheets.jsx'
+import { Button } from '../../components/ui.jsx'
+import Icon from '../../components/Icon.jsx'
+import './calendar-names.css'
 
 const toast = msg => useUI.getState().toast(msg)
 

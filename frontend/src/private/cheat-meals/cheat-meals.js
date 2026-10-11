@@ -7,7 +7,7 @@
 // ids are derived from the entry itself, so two devices converting the same history produce the
 // same ids and the sync merge (union by id) does not double it.
 
-import { isoOf, uid } from './format.js'
+import { isoOf, uid } from '../../lib/format.js'
 
 export const FOOD_MAX = 120
 // As many distinct foods as the breakdown shows before folding the rest into "other"

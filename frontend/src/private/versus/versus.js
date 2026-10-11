@@ -2,7 +2,7 @@
 // helpers the screen uses. The comparison itself is computed on the server (api/versus.js), which
 // only ever sends aggregates of the other person.
 import { create } from 'zustand'
-import { api } from './api.js'
+import { api } from '../../lib/api.js'
 
 // Pairings + the incoming-request count that puts a dot on the tab. Not persisted: it is a view
 // of the server, refreshed on load, on focus, every minute while open, and after every action.

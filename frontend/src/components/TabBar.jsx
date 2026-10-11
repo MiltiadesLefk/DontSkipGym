@@ -18,9 +18,7 @@ function Tab({ active, icon, label, onClick, dot, dotLabel }) {
     </button>
   )
 }
-import { useEffect } from 'react'
-import { useVersus, refreshVersus } from '../lib/versus.js'
-import '../versus.css'
+import PrivateTabs from '../private/PrivateTabs.jsx'
 
 export default function TabBar({ onStart }) {
   const nav = useNavigate()
@@ -31,16 +29,6 @@ export default function TabBar({ onStart }) {
   // With the connection banner switched off, a sync problem shows as a dot on Home, the tab
   // Settings lives under (#369, #330).
   const trouble = useConnectionTrouble()
-  const versusIn = useVersus(s => s.incoming)
-  // The dot on Versus: asked on load, whenever the app comes back into view, and every minute
-  useEffect(() => {
-    if (!user) return
-    refreshVersus()
-    const onVis = () => { if (document.visibilityState === 'visible') refreshVersus() }
-    document.addEventListener('visibilitychange', onVis)
-    const tm = setInterval(onVis, 60000)
-    return () => { document.removeEventListener('visibilitychange', onVis); clearInterval(tm) }
-  }, [user])
   if (!user && !isGuest) return null
   const cur = loc.pathname.split('/')[1] || 'home'
   const on = k => cur === k || (cur === 'history' && k === 'stats') || (cur === 'settings' && k === 'home') || (cur === 'muscles' && k === 'library') || (cur === 'structural-balance' && k === 'stats')
@@ -59,7 +47,7 @@ export default function TabBar({ onStart }) {
     <nav id="tabbar">
       <Tab active={on('home')} icon="house" label={t('Home')} dot={trouble} onClick={() => nav('/home')} />
       <Tab active={on('plan')} icon="calendar" label={t('Plan')} onClick={() => nav('/plan')} />
-      <Tab active={on('cheat')} icon="pizza" label={t('Cheat')} onClick={() => nav('/cheat')} />
+      <PrivateTabs after="plan" {...{ Tab, on, nav, user }} />
       {/* On the workout screen itself there is nothing to resume, so the button reads as the
           tab it is and stays lit (#29); anywhere else it brings you back to the exercise you
           were on — the marker is kept in S.active.cur and never moves on its own (#21). The
@@ -74,7 +62,7 @@ export default function TabBar({ onStart }) {
           : <span>{S.active ? (cur === 'workout' ? t('Workout') : S.active.editingWorkoutId ? t('Edit workout') : t('Resume')) : t('Start')}</span>}
       </button>
       <Tab active={on('stats')} icon="chart" label={t('Stats')} onClick={() => nav('/stats')} />
-      {user && <Tab active={on('versus')} icon="boxing" label={t('Versus')} dot={versusIn > 0} dotLabel={t('new request')} onClick={() => nav('/versus')} />}
+      <PrivateTabs after="stats" {...{ Tab, on, nav, user }} />
       <Tab active={on('library')} icon="dumbbell" label={t('Exercises')} onClick={() => nav('/library')} />
     </nav>
   )

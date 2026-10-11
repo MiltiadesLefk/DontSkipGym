@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { summarize, bestSets, commonBests, cheatMealsOf, dayMinus, isWarmup } from '../versus.js';
+import { summarize, bestSets, commonBests, cheatMealsOf, dayMinus, isWarmup } from '../private/versus.js';
 
 const set = (w, r, extra = {}) => ({ w, r, done: true, ...extra });
 const workout = (d, vol, entries) => ({ id: d, d, vol, entries });

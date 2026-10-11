@@ -9,6 +9,7 @@
 // stays out of the per-language string packs (see the header of views/Admin.jsx). Times still
 // follow the UI language, the way numbers and dates already do.
 import { dateLocale } from './i18n-core.js'
+import { privateAuditLabels } from '../private/index.js'
 
 // The first segment of an event name is also the filter chip it belongs to.
 export const auditCat = ev => String(ev || '').split('.')[0]
@@ -53,10 +54,6 @@ const LABELS = {
   'auth.proof.fail': 'Confirming a change failed',
   // The password throttle paused an address; `msg` says for what (password, signup).
   'auth.throttled': 'Too many failed attempts from one address',
-  'auth.versus.request': 'Asked to compare on Versus',
-  'auth.versus.accept': 'Accepted a Versus request',
-  'auth.versus.decline': 'Declined a Versus request',
-  'auth.versus.end': 'Ended a Versus pairing',
   'admin.user.disable': 'Disabled an account',
   'admin.user.enable': 'Re-enabled an account',
   'admin.user.delete': 'Deleted an account',
@@ -74,6 +71,7 @@ const LABELS = {
 }
 // An unknown event is shown raw rather than dropped or rendered as "undefined": a dashboard
 // that is one version behind the server should still say *something* truthful.
+Object.assign(LABELS, privateAuditLabels)
 export const auditLabel = ev => LABELS[ev] || String(ev || 'Unknown event')
 
 const REASONS = {

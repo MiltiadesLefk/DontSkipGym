@@ -46,8 +46,7 @@ import CoachChat from './views/CoachChat.jsx'
 import Measurements from './views/Measurements.jsx'
 import CoachIntake from './views/CoachIntake.jsx'
 import CoachSetup from './views/CoachSetup.jsx'
-import CheatMeals from './views/CheatMeals.jsx'
-import Versus from './views/Versus.jsx'
+import { privateRoutes } from './private/routes.jsx'
 
 // last known scrollY per route, so back-navigation can put the page where it was
 const scrollPositions = new Map()
@@ -215,8 +214,7 @@ function Shell() {
               <Route path="/workout" element={<Workout />} />
               <Route path="/stats" element={<Stats />} />
               <Route path="/history" element={<History />} />
-              <Route path="/cheat" element={<CheatMeals />} />
-              <Route path="/versus" element={<Versus />} />
+              {privateRoutes}
               <Route path="/library" element={<Library />} />
               <Route path="/muscles" element={<Muscles />} />
               <Route path="/structural-balance" element={<StructuralBalance />} />
